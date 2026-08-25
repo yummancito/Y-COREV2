@@ -13,7 +13,7 @@ abre un issue para corregir este archivo.
 
 | Carpeta | Qué es | Estado |
 |---|---|---|
-| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 2 en progreso: primera feature vertical (Biblioteca) completa en main, sin renderer todavía. |
+| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 2: feature Biblioteca completa (main + renderer). |
 | `apps/web-landing` | Landing estática "próximamente", en Astro. Se despliega en Cloudflare Pages. | Contenido inicial hecho — ver `docs/00-overview/repo-map.md#apps-web-landing`. |
 
 ### `apps/desktop`
@@ -44,12 +44,23 @@ apps/desktop/
 │   └── handlers.ts                traduce dominio ↔ forma exacta del contrato IPC
 ├── src/main/platform/
 │   └── process-launcher.ts        único lugar que hace spawn() real (lanzar juegos)
+├── src/renderer/features/library/    lado renderer del molde canónico
+│   ├── hooks/                          useLibraryQuery, useLaunchGame (TanStack Query)
+│   └── components/                     GameCard, LibraryGrid
+├── tools/
+│   ├── rebuild-native-for-electron.mjs   recompila better-sqlite3 para la ABI de Electron
+│   └── rebuild-native-for-node.mjs       restaura el binding de Node (para los tests)
 └── drizzle.config.ts
 ```
 
-Documentación de la feature Biblioteca en `docs/02-features/library/`. Sin
-`renderer/features/*` todavía — el lado del renderer (grid, filtros, búsqueda) sigue
-pendiente dentro de la propia Fase 2.
+Documentación de la feature Biblioteca en `docs/02-features/library/`.
+
+**better-sqlite3 y ABI nativa**: el binding compilado no puede ser el mismo para
+`pnpm test` (corre bajo Node) y `pnpm dev`/`pnpm build` (corren bajo Electron, ABI
+distinta). `pnpm dev`/`pnpm build` corren `rebuild-native-for-electron.mjs`
+automáticamente; `pnpm test`/`pnpm check:contract` corren `rebuild-native-for-node.mjs`.
+Requiere Visual Studio Build Tools (workload C++) instalado — ver `aprendizaje.md` para
+el diagnóstico completo de por qué esto hizo falta.
 
 ### `apps/web-landing`
 

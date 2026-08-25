@@ -25,3 +25,13 @@ proceso de inmediato: Y-CORE no rastrea si el juego sigue corriendo, no captura 
 stdout/stderr, no sabe cuándo termina. Es la decisión correcta para Fase 2 — supervisión
 de proceso (para "tiempo jugado", por ejemplo) es una feature aparte, no algo que
 `library.launch` deba hacer implícitamente.
+
+## `LibraryGrid` no está virtualizado todavía
+
+El criterio de HECHO de Fase 2 pide que 10.000 juegos falsos rendericen a 60 fps, lo que
+normalmente exige un grid virtualizado (`@tanstack/react-virtual`). No hay datos reales
+todavía (Steam real llega en Fase 3) para medir el costo real de renderizar, así que
+`LibraryGrid` mapea `library.data` directamente sin virtualizar. Cuando exista una
+biblioteca real (o un dataset de prueba masivo) para medir de verdad, se virtualiza
+entonces — añadir la dependencia hoy sin nada que la justifique sería complejidad
+adelantada sin caso de uso.

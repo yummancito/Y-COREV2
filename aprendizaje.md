@@ -226,3 +226,152 @@ nunca convertir en el `AppError` que ve el llamador original.
 `try/catch` alrededor de la llamada que lo crea NUNCA es suficiente. Verificado con un test
 real (ejecutable inexistente de verdad), no un mock — un mock de `spawn` no habría
 reproducido este comportamiento asíncrono específico de Windows.
+
+---
+
+## 2026-08-25 — `environmentMatchGlobs` de Vitest fue removido en la v4
+
+**Contexto:** al configurar `apps/desktop/vitest.config.ts` para que los tests de
+`src/main/**` corran en entorno `node` y los de `src/renderer/**` en `jsdom` (main usa DB
+real y `spawn`; el renderer necesita DOM para React Testing Library).
+
+**Error:** con `environmentMatchGlobs: [['src/renderer/**', 'jsdom']]`, todos los tests del
+renderer fallaban con `ReferenceError: document is not defined` — como si `jsdom` nunca se
+hubiera aplicado.
+
+**Causa:** `environmentMatchGlobs` era una opción de Vitest 1-2 y fue removida en Vitest 4
+(el paquete instalado es `vitest@4.1.10`) sin dejar rastro en los `.d.ts` — TypeScript no
+marcó error porque el config no está tipado estrictamente contra ese campo específico, así
+que el typo silencioso pasó desapercibido hasta correr los tests.
+
+**Solución:** reemplazado por `test.projects` (la API de Vitest 4 para configs
+multi-entorno dentro de un mismo archivo): dos proyectos (`main` con `environment: 'node'`
+e `include: ['src/main/**/*.test.ts', ...]`, `renderer` con `environment: 'jsdom'` e
+`include: ['src/renderer/**/*.test.{ts,tsx}']`), cada uno con `extends: true` para heredar
+la config base (plugins, etc.).
+
+**Cómo evitarlo:** cuando una opción de config de una librería con versiones mayores
+frecuentes (Vitest, Vite) no produce ningún error de tipos raro pero tampoco funciona,
+sospechar que fue removida/renombrada entre versiones — grepear los `.d.ts` instalados
+directamente por el nombre del campo confirma si existe en la versión real instalada, en
+vez de confiar en documentación o memoria de versiones anteriores.
+
+---
+
+## 2026-08-25 — Un spread superficial de `window` rompe jsdom en tests
+
+**Contexto:** al mockear `window.ycore` en los tests del renderer (hooks y componentes que
+llaman `window.ycore.library.*`), usando `vi.stubGlobal('window', { ...globalThis.window,
+ycore: fake })`.
+
+**Error:** los tests fallaban con `TypeError: Expected container to be an Element, a
+Document or a DocumentFragment but got undefined` dentro de `waitFor` — como si
+`document`/`document.body` hubiera desaparecido a mitad del test.
+
+**Causa:** `{ ...globalThis.window }` hace un spread superficial que copia las propiedades
+**propias y enumerables** de `window` a un objeto plano nuevo. En jsdom, `document` (y
+otros miembros de `Window`) no son propiedades de datos simples sino accessors definidos en
+el prototipo de `Window` — un spread no los copia. El objeto resultante que
+`vi.stubGlobal('window', ...)` instalaba como `globalThis.window` ya no era un `Window` de
+verdad: perdía su prototipo y todos sus getters, así que cualquier código que leyera
+`window.document` después obtenía `undefined`.
+
+**Solución:** en vez de reemplazar `window` completo, usar `Object.assign(window, {
+ycore: fake })` — modifica el objeto `window` real de jsdom in-place, añadiendo solo la
+propiedad necesaria, sin tocar su prototipo ni sus accessors existentes.
+
+**Cómo evitarlo:** nunca reconstruir un objeto host (`window`, `document`, cualquier cosa
+provista por el entorno, no por el propio código) con spread — un objeto host casi siempre
+tiene comportamiento en su prototipo (getters, setters, métodos nativos) que un spread
+plano no reproduce. Mutar la propiedad específica que hace falta, no reemplazar el objeto
+completo.
+
+---
+
+## 2026-08-25 — Tres bugs reales al intentar abrir la ventana de Electron por primera vez
+
+**Contexto:** al verificar de extremo a extremo que `apps/desktop` abre una ventana real
+(criterio informal de "la app funciona", más allá de que los tests pasen). Se encontraron
+tres problemas encadenados, cada uno enmascarando al siguiente.
+
+### 1. `"type": "module"` rompía la interop CJS de better-sqlite3
+
+**Error:** `TypeError: Cannot read properties of undefined (reading 'exports')` en
+`cjsPreparseModuleExports` al arrancar.
+
+**Causa:** `apps/desktop/package.json` tenía `"type": "module"`, así que electron-vite
+compilaba main/preload como ESM (`format: 'es'`, derivado directamente de `pkg.type` — ver
+`electron-vite/dist/chunks/lib-*.js`). `better-sqlite3` es un addon nativo CJS; la interop
+Node ESM→CJS con un addon nativo específicamente falla en ese paso de preanálisis.
+
+**Solución:** quitar `"type": "module"` de `apps/desktop/package.json`. electron-vite
+compila entonces main/preload como CJS (su formato por defecto), mucho más compatible con
+dependencias nativas. El renderer (React, vía Vite aparte) no se ve afectado.
+
+### 2. `externalizeDepsPlugin()` dejaba los paquetes del workspace sin transpilar
+
+**Error:** tras arreglar (1), `SyntaxError: Unexpected token 'export'` en
+`packages/logger/src/index.ts` al arrancar.
+
+**Causa:** `externalizeDepsPlugin()` externaliza automáticamente TODAS las
+`dependencies` del `package.json`, incluidos los paquetes del propio workspace
+(`@ycore/logger`, etc.), que exportan `.ts` directo (pensado para que Vite los transpile
+al consumirlos, no para que Node haga `require()` de ellos tal cual).
+
+**Solución:** `externalizeDepsPlugin({ exclude: WORKSPACE_PACKAGES })` en
+`electron.vite.config.ts`, con la lista de paquetes `@ycore/*` — así se bundlean dentro
+de `out/main`/`out/preload` en vez de quedar como `require()` externo.
+
+### 3. El prebuild de better-sqlite3 es para la ABI de Node, no la de Electron
+
+**Error:** tras arreglar (1) y (2), la app abre sin errores de JS, pero el proceso
+Electron muere en silencio (sin excepción capturable, sin log de Windows) exactamente en
+`new Database(dbPath)`.
+
+**Causa:** `node_modules/better-sqlite3/prebuilds/win32-x64.node` es el prebuild que
+`npm`/`pnpm` descarga por defecto — compilado contra la ABI de Node normal
+(`process.versions.modules`), no la de Electron (Electron 33 embebe Node 20, ABI 130,
+distinta a la del Node del sistema en esta máquina, ABI 137). `better-sqlite3` usa N-API
+(ABI estable entre versiones), pero el prebuild de fábrica sigue sin ser el correcto para
+Electron — necesita su propio rebuild con `@electron/rebuild`.
+
+Complicación adicional: `better-sqlite3`'s `binding.gyp` tiene
+`'prebuild_exists%': '<!(node lib/binding.js)'` — si YA existe cualquier prebuild
+(aunque sea el de Node), `node-gyp rebuild` genera un proyecto vacío que "compila" en
+menos de 3 segundos sin tocar ningún `.cc` fuente y reporta éxito falso. Hubo que borrar
+el prebuild existente para forzar una compilación real.
+
+**Solución:** dos scripts en `apps/desktop/tools/`:
+- `rebuild-native-for-electron.mjs` — respalda el prebuild de Node en
+  `win32-x64.node-abi.node`, lo esconde, corre `electron-rebuild --build-from-source`, y
+  copia el resultado a `win32-x64.node` (activo) y `win32-x64.electron-abi.node` (backup).
+- `rebuild-native-for-node.mjs` — restaura el backup de Node al activo.
+
+`pnpm dev`/`pnpm build` corren el primero automáticamente; `pnpm test`/`pnpm
+check:contract` corren el segundo (los tests usan SQLite real bajo Node vía Vitest, no
+pueden compartir binding con la app real bajo Electron).
+
+**Requiere Visual Studio Build Tools (workload C++) instalado y el script corriendo desde
+un entorno con `vcvars64.bat` cargado** (Developer Command Prompt/PowerShell) — sin eso,
+`node-gyp` no encuentra `cl.exe`/`link.exe` y el build "reporta éxito" sin compilar nada
+(mismo síntoma de éxito falso que el problema del prebuild existente, causa distinta).
+
+### Lo que quedó sin resolver en este entorno concreto
+
+Incluso con el binding recompilado y confirmado ABI 130 (correcto para Electron) en
+runtime (`process.versions.modules: 130` verificado dentro del propio proceso Electron),
+`new Database(':memory:')` sigue matando el proceso sin generar ningún log de Windows
+(Event Viewer, WER) ni excepción de JS. Se aisló hasta confirmar: Electron real funciona
+(`BrowserWindow` con `data:` URL abre, `did-finish-load`/`ready-to-show` disparan,
+`isVisible: true`); `better-sqlite3` con el binding de Electron carga y funciona
+perfectamente bajo Node puro; pero el mismo binding, dentro del mismo proceso Electron
+real, crashea específicamente al inicializar la conexión SQLite. No se pudo diagnosticar
+más allá con las herramientas disponibles en este sandbox (sin WinDbg ni acceso a dumps
+de proceso). Es un problema del entorno de este sandbox, no del código — pendiente de
+verificar en una máquina de desarrollo real sin las restricciones de este entorno.
+
+**Cómo evitarlo / próximo paso:** en la máquina real del usuario, correr
+`pnpm --filter @ycore/desktop dev` tras instalar Visual Studio Build Tools. Si el mismo
+crash silencioso ocurriera ahí también, el primer paso de diagnóstico sería un dump de
+proceso real (Process Explorer con "Create dump" al crashear, o `--enable-crashpad` con
+un servidor de crash reports local) — herramientas que este sandbox no expone.

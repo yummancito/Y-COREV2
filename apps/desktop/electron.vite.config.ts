@@ -33,9 +33,25 @@ function copyMigrationsPlugin() {
   };
 }
 
+/**
+ * Paquetes del propio workspace: `externalizeDepsPlugin()` los dejaría como
+ * `require('@ycore/logger')` externo, pero sus `exports` apuntan directo a
+ * `.ts` (para que Vite los transpile al consumirlos) — un `require()` de
+ * Node en el bundle final no sabe transpilar TypeScript y revienta con
+ * `SyntaxError: Unexpected token 'export'`. Excluidos de la externalización:
+ * se bundlean dentro de out/main e out/preload en vez de quedar como
+ * dependencia externa.
+ */
+const WORKSPACE_PACKAGES = [
+  '@ycore/core-domain',
+  '@ycore/ipc-contract',
+  '@ycore/logger',
+  '@ycore/result',
+];
+
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin(), copyMigrationsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: WORKSPACE_PACKAGES }), copyMigrationsPlugin()],
     build: {
       rollupOptions: {
         input: resolve(__dirname, 'src/main/index.ts'),
@@ -43,7 +59,7 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: WORKSPACE_PACKAGES })],
     build: {
       rollupOptions: {
         input: resolve(__dirname, 'src/preload/index.ts'),
