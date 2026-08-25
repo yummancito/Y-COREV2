@@ -13,7 +13,7 @@ abre un issue para corregir este archivo.
 
 | Carpeta | Qué es | Estado |
 |---|---|---|
-| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 1: router IPC único, preload sin invoke() genérico, ventana con contextIsolation/sandbox on. Sin features todavía. |
+| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 2 en progreso: primera feature vertical (Biblioteca) completa en main, sin renderer todavía. |
 | `apps/web-landing` | Landing estática "próximamente", en Astro. Se despliega en Cloudflare Pages. | Contenido inicial hecho — ver `docs/00-overview/repo-map.md#apps-web-landing`. |
 
 ### `apps/desktop`
@@ -38,12 +38,18 @@ apps/desktop/
 │   ├── schema.ts                 esquema Drizzle (única fuente de verdad, migra desde aquí)
 │   ├── client.ts                 openDatabase(): abre, respalda (.bak) y migra
 │   └── migrations/                generadas con `pnpm db:generate`, nunca a mano
+├── src/main/features/library/    primera feature vertical (molde canónico)
+│   ├── repository.ts              tabla `games` ↔ Game/Installation de core-domain
+│   ├── service.ts                 orquesta repository + core-domain + platform
+│   └── handlers.ts                traduce dominio ↔ forma exacta del contrato IPC
+├── src/main/platform/
+│   └── process-launcher.ts        único lugar que hace spawn() real (lanzar juegos)
 └── drizzle.config.ts
 ```
 
-Sin `main/features/*` ni `renderer/features/*` todavía — la primera feature vertical
-(biblioteca) es Fase 2. La tabla `games` de `main/db/schema.ts` existe pero ningún
-repositorio la usa todavía.
+Documentación de la feature Biblioteca en `docs/02-features/library/`. Sin
+`renderer/features/*` todavía — el lado del renderer (grid, filtros, búsqueda) sigue
+pendiente dentro de la propia Fase 2.
 
 ### `apps/web-landing`
 
@@ -79,8 +85,8 @@ Decisiones de estilo (a propósito distintas de cualquier referencia externa):
 | `packages/logger` | `createLogger(scope)` — el único logger de main/preload/renderer. Formato legible en dev, JSON en producción. | Implementado, con tests. |
 | `packages/tsconfig` | `tsconfig` base compartido por todo el monorepo. | Implementado. |
 | `packages/eslint-config` | ESLint 9 flat config compartida: límites de tamaño (B.2), boundaries (B.3), no-any y no-raw-ipc (B.1/B.6). | Implementado. |
-| `packages/ipc-contract` | El corazón (ADR-0002): mapa de canales IPC con Zod input/output, `.describe()` obligatorio verificado en runtime. | Implementado, con tests, cobertura 100%. Solo el canal de referencia `app.ping`. |
-| `packages/core-domain` | `Game`, `Installation`, `resolveLaunchCommand` — tipos y reglas puras, cero Electron/`node:fs`. | Implementado, con tests, cobertura 100%. Todavía no lo usa ningún repositorio de `apps/desktop`. |
+| `packages/ipc-contract` | El corazón (ADR-0002): mapa de canales IPC con Zod input/output, `.describe()` obligatorio verificado en runtime. | Implementado, con tests, cobertura 100%. Canales `app.ping`, `library.list`, `library.launch`. |
+| `packages/core-domain` | `Game`, `Installation`, `resolveLaunchCommand` — tipos y reglas puras, cero Electron/`node:fs`. | Implementado, con tests, cobertura 100%. Usado por `main/features/library`. |
 
 Las demás carpetas de `packages/` que aparecen en el roadmap (`steam-kit`,
 `updater-client`, `ui-kit`, `i18n`) todavía no existen — se crean en las fases

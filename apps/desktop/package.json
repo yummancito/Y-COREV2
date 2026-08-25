@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
+    "@ycore/core-domain": "workspace:*",
     "@ycore/ipc-contract": "workspace:*",
     "@ycore/logger": "workspace:*",
     "@ycore/result": "workspace:*",

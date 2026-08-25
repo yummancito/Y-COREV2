@@ -17,7 +17,7 @@ import { err, isErr, ok, type Result } from '@ycore/result';
 import { appError, fromUnknown, type AppError } from '@ycore/result/app-error';
 import { contract, type ChannelName } from '@ycore/ipc-contract';
 import { createLogger } from '@ycore/logger';
-import { registry } from './registry.js';
+import type { Registry } from './registry.js';
 
 const log = createLogger('main:ipc:router');
 
@@ -40,7 +40,11 @@ function isKnownChannel(channel: string): channel is ChannelName {
  * validación de "el canal existe" con "el canal se ejecutó bien" hacía la
  * función original superar el límite de complejidad ciclomática.
  */
-async function runChannel(channel: ChannelName, rawPayload: unknown): Promise<Result<unknown, AppError>> {
+async function runChannel(
+  registry: Registry,
+  channel: ChannelName,
+  rawPayload: unknown,
+): Promise<Result<unknown, AppError>> {
   const definition = contract[channel];
 
   const parsedInput = definition.input.safeParse(rawPayload);
@@ -49,7 +53,12 @@ async function runChannel(channel: ChannelName, rawPayload: unknown): Promise<Re
     return err(appError('ipc.invalid-input', { context: { channel } }));
   }
 
-  const handler = registry[channel];
+  // TS no puede probar que `channel` correlaciona su propio handler con su
+  // propio input dentro de un lookup dinámico sobre una unión discriminada —
+  // el cast es seguro porque isKnownChannel() y el tipo Registry (que exige
+  // las 100% de las claves de ChannelName) garantizan la correspondencia 1:1
+  // en runtime; safeParse ya validó el shape real del payload arriba.
+  const handler = registry[channel] as (input: unknown) => Promise<Result<unknown, AppError>>;
   const result = await handler(parsedInput.data);
   if (isErr(result)) return result;
 
@@ -68,9 +77,16 @@ async function runChannel(channel: ChannelName, rawPayload: unknown): Promise<Re
  * convierte en `AppError` con código `ipc.handler-crashed`.
  *
  * Exportada (no interna) para poder testearla en aislamiento sin levantar
- * Electron de verdad — ver router.test.ts.
+ * Electron de verdad — ver router.test.ts. Recibe `registry` como parámetro
+ * (no lo importa) para no acoplar el router a cómo se construye — el registry
+ * necesita la conexión de DB real, que solo existe tras `openAppDatabase()`
+ * en el bootstrap.
  */
-export async function handleIpcRequest(_event: unknown, request: IpcRequest): Promise<Result<unknown, AppError>> {
+export async function handleIpcRequest(
+  registry: Registry,
+  _event: unknown,
+  request: IpcRequest,
+): Promise<Result<unknown, AppError>> {
   const { channel, payload } = request;
 
   if (!isKnownChannel(channel)) {
@@ -79,7 +95,7 @@ export async function handleIpcRequest(_event: unknown, request: IpcRequest): Pr
   }
 
   try {
-    return await runChannel(channel, payload);
+    return await runChannel(registry, channel, payload);
   } catch (error) {
     log.error('el handler lanzó una excepción no controlada', { channel });
     return err({ ...fromUnknown(error), code: 'ipc.handler-crashed' });
@@ -90,7 +106,9 @@ export async function handleIpcRequest(_event: unknown, request: IpcRequest): Pr
  * Registra el único `ipcMain.handle` del proceso. Se llama una vez desde el
  * bootstrap de arranque (`main/bootstrap/`), nunca desde una feature.
  */
-export function registerIpcRouter(): void {
-  ipcMain.handle(IPC_ENTRY_POINT, handleIpcRequest);
+export function registerIpcRouter(registry: Registry): void {
+  ipcMain.handle(IPC_ENTRY_POINT, (event: unknown, request: IpcRequest) =>
+    handleIpcRequest(registry, event, request),
+  );
   log.info('router IPC registrado', { channelCount: Object.keys(contract).length });
 }

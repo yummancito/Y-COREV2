@@ -10,12 +10,22 @@
  * tenga contenido real y falle con un mensaje claro si algún día el tipado
  * se relaja (p. ej. un `Partial<Registry>` colado por error).
  *
+ * `buildRegistry` necesita una conexión de DB (los handlers de features la
+ * usan), así que este script abre una en memoria solo para inspeccionar las
+ * claves del registry resultante — no se leen ni escriben datos reales.
+ *
  * Uso:  pnpm check:contract (desde apps/desktop)
  * Salida: exit 0 = ok · exit 1 = desincronizado (lista qué falta)
  */
 
+import { join } from 'node:path';
 import { contract } from '@ycore/ipc-contract';
-import { registry } from './registry.js';
+import { openDatabase } from '../db/index.js';
+import { buildRegistry } from './registry.js';
+
+const db = openDatabase(':memory:', join(import.meta.dirname, '../db/migrations'));
+const registry = buildRegistry(db);
+db.$client.close();
 
 const contractChannels = new Set(Object.keys(contract));
 const registryChannels = new Set(Object.keys(registry));

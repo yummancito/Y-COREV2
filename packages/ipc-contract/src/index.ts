@@ -14,11 +14,13 @@
  */
 
 import { appChannels } from './channels/app.js';
+import { libraryChannels } from './channels/library.js';
 import { assertContractIsFullyDescribed } from './assert-described.js';
 
 /** Todos los canales del contrato, namespaced por feature (`<feature>.<verbo>`). */
 export const contract = {
   ...appChannels,
+  ...libraryChannels,
 } as const;
 
 assertContractIsFullyDescribed(contract);

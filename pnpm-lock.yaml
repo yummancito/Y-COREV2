@@ -35,6 +35,9 @@ importers:
       '@electron-toolkit/utils':
         specifier: ^4.0.0
         version: 4.0.0(electron@33.4.11(supports-color@7.2.0))
+      '@ycore/core-domain':
+        specifier: workspace:*
+        version: link:../../packages/core-domain
       '@ycore/ipc-contract':
         specifier: workspace:*
         version: link:../../packages/ipc-contract

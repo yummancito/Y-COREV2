@@ -197,3 +197,32 @@ plugin de una función propia con `cpSync` es más fiable y más fácil de depur
 dependencia externa cuyo comportamiento con el modo SSR environments de Vite 7 no está
 verificado. Reservar plugins de terceros para necesidades más complejas (glob patterns,
 watch mode en dev, etc.) que sí justifiquen la dependencia.
+
+---
+
+## 2026-08-25 — `spawn()` con ejecutable inexistente falla de forma asíncrona en Windows
+
+**Contexto:** al escribir `main/platform/process-launcher.ts` (`spawnDetached`), que lanza
+el ejecutable de un juego y devuelve `Result<{ pid }, AppError>` de forma síncrona.
+
+**Error:** el test con un ejecutable inexistente (`C:\ruta\que\no\existe\nunca.exe`)
+producía un `Unhandled Error` de Vitest — un `ENOENT` no capturado escapaba del `try/catch`
+de `spawnDetached` y se propagaba como excepción global del proceso.
+
+**Causa:** en Windows, `child_process.spawn()` con un ejecutable que no existe NO lanza de
+forma síncrona: crea el objeto `ChildProcess` normalmente y emite el evento `'error'` de
+forma asíncrona un instante después. El `try/catch` de `spawnDetached` solo puede capturar
+fallos síncronos — el ENOENT llegaba fuera de esa ventana y no tenía ningún listener que lo
+absorbiera, así que Node lo trataba como una excepción no manejada.
+
+**Solución:** añadido `child.on('error', ...)` en `spawnDetached` que registra el fallo
+tardío con el logger en vez de dejarlo sin manejar. El `Result` síncrono ya se devolvió al
+llamador para ese momento (con éxito si el SO aceptó el spawn, como pasó en este caso) — no
+hay forma de "revocar" esa respuesta, así que el fallo asíncrono solo se puede registrar,
+nunca convertir en el `AppError` que ve el llamador original.
+
+**Cómo evitarlo:** cualquier wrapper sobre una API de Node que emite eventos async de error
+(`child_process`, streams, sockets) necesita su propio listener de `'error'` — un
+`try/catch` alrededor de la llamada que lo crea NUNCA es suficiente. Verificado con un test
+real (ejecutable inexistente de verdad), no un mock — un mock de `spawn` no habría
+reproducido este comportamiento asíncrono específico de Windows.

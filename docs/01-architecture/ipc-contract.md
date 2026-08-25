@@ -24,3 +24,33 @@ Confirmación de que el main process está vivo y respondiendo.
   - `pong: boolean`
   - `receivedAt: string`
 
+## Namespace `library.*`
+
+### `library.launch`
+
+Lanza un juego instalado.
+
+**Input:**
+
+  - `appId: integer` — AppID del juego a lanzar.
+
+**Output:**
+
+El proceso quedó lanzado.
+
+  - `pid: integer` — PID del proceso lanzado.
+
+### `library.list`
+
+Sin filtros por ahora: devuelve toda la biblioteca conocida.
+
+**Input:**
+
+  (sin campos)
+
+**Output:**
+
+La biblioteca completa.
+
+  - `games: array` — Todos los juegos conocidos.
+

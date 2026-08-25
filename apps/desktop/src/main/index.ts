@@ -13,6 +13,7 @@ import { createLogger } from '@ycore/logger';
 import { attachLifecycleHandlers, enforceSingleInstance } from './bootstrap/lifecycle.js';
 import { openAppDatabase } from './bootstrap/database.js';
 import { createMainWindow } from './bootstrap/window.js';
+import { buildRegistry } from './ipc/registry.js';
 import { registerIpcRouter } from './ipc/router.js';
 
 const log = createLogger('main:bootstrap');
@@ -41,7 +42,7 @@ if (!enforceSingleInstance(showOrCreateMainWindow)) {
     const db = openAppDatabase();
     app.on('will-quit', () => db.$client.close());
 
-    registerIpcRouter();
+    registerIpcRouter(buildRegistry(db));
     mainWindow = createMainWindow();
     attachLifecycleHandlers(() => (mainWindow = createMainWindow()));
 
