@@ -1,0 +1,4 @@
+#!/bin/sh
+# Verifica que toda feature del código tiene su documentación antes de publicar.
+set -e
+node tools/scripts/check-docs.mjs

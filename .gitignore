@@ -1,0 +1,45 @@
+# Dependencias
+node_modules/
+.pnpm-store/
+
+# Builds
+dist/
+dist-electron/
+out/
+release/
+build/
+.turbo/
+.astro/
+*.tsbuildinfo
+
+# Binarios — NUNCA en git (el v1 tenía un .exe de 428 MB commiteado)
+*.exe
+*.dll
+*.msi
+*.asar
+*.blockmap
+*.7z
+*.zip
+
+# Entorno y secretos
+.env
+.env.*
+!.env.example
+.dev.vars
+wrangler.toml.local
+
+# Tests y cobertura
+coverage/
+playwright-report/
+test-results/
+
+# Editores y SO
+.vscode/*
+!.vscode/extensions.json
+.idea/
+Thumbs.db
+desktop.ini
+*.log
+
+# Claude Code — settings.json SÍ se versiona (los hooks son parte del proyecto)
+.claude/settings.local.json

@@ -1,0 +1,91 @@
+---
+// index.astro
+// Para qué sirve: página "próximamente" de Y-CORE mientras se reconstruye la
+// app de escritorio (ver docs/00-overview/roadmap.md). Sin descargas ni
+// enlaces a producto todavía — solo qué es Y-CORE y en qué estado va.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+---
+
+<BaseLayout
+  title="Y-CORE — Gestor de juegos de Steam para Windows"
+  description="Y-CORE es un gestor de juegos de Steam para Windows, en reconstrucción. Biblioteca, descargas y actualizaciones propias, sin deuda técnica."
+>
+  <header class="cabecera">
+    <div class="contenedor cabecera__interior">
+      <span class="logo">
+        <Icon name="marca" />
+        Y-CORE
+      </span>
+      <span class="estado-badge">
+        <span class="estado-badge__punto" aria-hidden="true"></span>
+        En reconstrucción
+      </span>
+    </div>
+  </header>
+
+  <main>
+    <section class="portada">
+      <div class="contenedor portada__texto">
+        <h1>Un gestor de juegos de Steam, reconstruido desde cero.</h1>
+        <p>
+          Y-CORE organiza tu biblioteca de Steam en Windows: instalación,
+          descargas y actualizaciones en un solo sitio. Estamos reconstruyendo
+          la app completa, sin deuda técnica, antes de publicar la primera
+          versión.
+        </p>
+      </div>
+    </section>
+
+    <section class="seccion seccion--alterna">
+      <div class="contenedor">
+        <h2 class="seccion__titulo">Qué va a tener</h2>
+        <div class="rejilla rejilla--3">
+          <div class="tarjeta">
+            <Icon name="biblioteca" />
+            <h3>Biblioteca</h3>
+            <p>
+              Tu colección de Steam organizada, con búsqueda y detalle de
+              cada juego, sin depender de la app oficial para lanzarlos.
+            </p>
+          </div>
+          <div class="tarjeta">
+            <Icon name="descargas" />
+            <h3>Descargas</h3>
+            <p>
+              Un solo motor de descargas: cola persistida, reanudable si se
+              interrumpe, y verificación de integridad antes de instalar.
+            </p>
+          </div>
+          <div class="tarjeta">
+            <Icon name="actualizaciones" />
+            <h3>Actualizaciones</h3>
+            <p>
+              Sistema propio, firmado, con modo mantenimiento silencioso y
+              sin depender de librerías de terceros para actualizarse.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="seccion">
+      <div class="contenedor">
+        <div class="aviso">
+          <Icon name="aviso" />
+          <p>
+            <strong>Todavía no hay nada que instalar.</strong> Esta página se
+            actualiza según avanza la reconstrucción, sin fechas que no
+            podamos cumplir.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor pie__interior">
+      <p>&copy; {new Date().getFullYear()} Y-CORE</p>
+    </div>
+  </footer>
+</BaseLayout>

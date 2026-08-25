@@ -1,0 +1,336 @@
+/* ============================================================================
+   Y-CORE — Hoja de estilos de la landing
+   ----------------------------------------------------------------------------
+   Para qué sirve: sistema visual completo de la landing "próximamente". Fondo
+   oscuro y tipografía clara (el público son jugadores en Windows que ya usan
+   apps en modo oscuro), iconos SVG grandes y visibles en vez de solo texto, y
+   sin bordes divisorios marcados entre secciones — la separación se logra con
+   espaciado y un cambio sutil de superficie, no con una línea.
+
+   Organización: 1 Tokens · 2 Reset · 3 Tipografía · 4 Maquetación
+                 5 Componentes · 6 Responsive
+   ========================================================================== */
+
+/* ---------------------------------------------------------------- 1. Tokens */
+
+:root {
+  --color-fondo: #0b0d10;
+  --color-superficie: #12151a;
+  --color-superficie-alta: #181c23;
+  --color-borde: #232830;
+
+  --color-texto: #e6e9ee;
+  --color-texto-suave: #9aa3b0;
+  --color-texto-tenue: #6b7482;
+
+  --color-acento: #4f8cff;
+  --color-acento-suave: #1b2b4d;
+
+  --fuente-texto: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --fuente-codigo: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --espacio-2: 0.5rem;
+  --espacio-3: 0.75rem;
+  --espacio-4: 1rem;
+  --espacio-6: 1.5rem;
+  --espacio-8: 2rem;
+  --espacio-12: 3rem;
+  --espacio-16: 4rem;
+  --espacio-24: 6rem;
+
+  --ancho-maximo: 1100px;
+  --radio: 10px;
+  --transicion: 150ms ease;
+}
+
+/* ----------------------------------------------------------------- 2. Reset */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--color-fondo);
+  color: var(--color-texto);
+  font-family: var(--fuente-texto);
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ------------------------------------------------------------- 3. Tipografía */
+
+h1, h2, h3 {
+  margin: 0 0 var(--espacio-4);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+h1 { font-size: clamp(2rem, 5vw, 3.25rem); }
+h2 { font-size: clamp(1.5rem, 3vw, 2rem); }
+h3 { font-size: 1.1rem; }
+
+p {
+  margin: 0 0 var(--espacio-4);
+  color: var(--color-texto-suave);
+}
+
+a {
+  color: var(--color-acento);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--color-acento);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* --------------------------------------------------------- 4. Maquetación */
+
+.contenedor {
+  width: 100%;
+  max-width: var(--ancho-maximo);
+  margin: 0 auto;
+  padding: 0 var(--espacio-6);
+}
+
+/* Las secciones se separan por espaciado y por un cambio de superficie muy
+   sutil (fondo alterno), nunca por un borde grueso. Es la diferencia
+   deliberada respecto al sitio de referencia, que sí usa border-top. */
+.seccion {
+  padding: var(--espacio-24) 0;
+}
+
+.seccion--alterna {
+  background: linear-gradient(
+    180deg,
+    var(--color-fondo) 0%,
+    var(--color-superficie) 8%,
+    var(--color-superficie) 92%,
+    var(--color-fondo) 100%
+  );
+}
+
+.seccion__titulo {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-texto-tenue);
+  margin-bottom: var(--espacio-8);
+}
+
+.rejilla {
+  display: grid;
+  gap: var(--espacio-6);
+}
+
+.rejilla--2 { grid-template-columns: repeat(2, 1fr); }
+.rejilla--3 { grid-template-columns: repeat(3, 1fr); }
+
+/* --------------------------------------------------------- 5. Componentes */
+
+.cabecera {
+  padding: var(--espacio-6) 0;
+}
+
+.cabecera__interior {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espacio-6);
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espacio-3);
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--color-texto);
+}
+
+.logo:hover {
+  text-decoration: none;
+}
+
+/* Icono de marca: deliberadamente grande y visible, no un glifo diminuto
+   en la esquina. Pedido explícito: "iconos visibles, nada de iconos
+   pequeños". */
+.logo__icono {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.estado-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  font-size: 0.8rem;
+  color: var(--color-texto-tenue);
+  border: 1px solid var(--color-borde);
+  border-radius: 999px;
+  padding: var(--espacio-2) var(--espacio-4);
+}
+
+.estado-badge__punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-acento);
+}
+
+.portada {
+  padding: var(--espacio-24) 0 var(--espacio-16);
+  text-align: center;
+}
+
+.portada__texto {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.portada p {
+  font-size: 1.15rem;
+  max-width: 560px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Tarjeta de característica: icono grande arriba, sin borde superior separando
+   la rejilla de la sección — la propia tarjeta define su límite. */
+.tarjeta {
+  background: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  padding: var(--espacio-8) var(--espacio-6);
+  transition: border-color var(--transicion), transform var(--transicion);
+}
+
+.tarjeta:hover {
+  border-color: var(--color-acento);
+}
+
+.tarjeta__icono {
+  width: 48px;
+  height: 48px;
+  margin-bottom: var(--espacio-4);
+  color: var(--color-acento);
+}
+
+.tarjeta h3 {
+  color: var(--color-texto);
+  margin-bottom: var(--espacio-2);
+}
+
+.tarjeta p {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--espacio-4);
+  background: var(--color-acento-suave);
+  border: 1px solid var(--color-acento);
+  border-radius: var(--radio);
+  padding: var(--espacio-6);
+}
+
+.aviso__icono {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  color: var(--color-acento);
+}
+
+.aviso p {
+  margin: 0;
+  color: var(--color-texto-suave);
+}
+
+.aviso strong {
+  color: var(--color-texto);
+}
+
+.pie {
+  padding: var(--espacio-12) 0;
+  color: var(--color-texto-tenue);
+  font-size: 0.875rem;
+}
+
+.pie__interior {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espacio-6);
+}
+
+.pie__enlaces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-6);
+}
+
+.pie a {
+  color: var(--color-texto-suave);
+}
+
+/* ------------------------------------------------------------ 6. Responsive */
+
+@media (max-width: 760px) {
+  .rejilla--2,
+  .rejilla--3 {
+    grid-template-columns: 1fr;
+  }
+
+  .seccion {
+    padding: var(--espacio-16) 0;
+  }
+
+  .portada {
+    padding: var(--espacio-16) 0 var(--espacio-12);
+  }
+
+  .pie__interior {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--espacio-4);
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+  }
+}

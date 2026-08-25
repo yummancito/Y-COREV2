@@ -1,0 +1,8 @@
+#!/bin/sh
+# Guard de pre-commit de Y-CORE V2.
+# Rechaza binarios, archivos >5 MB y .md en la raíz. Ver .claude/CLAUDE.md.
+#
+# Hooks nativos de git a propósito: lefthook distribuye un binario sin firmar que
+# Windows App Control bloquea en esta máquina. Un .sh no tiene ese problema.
+set -e
+node tools/scripts/check-staged.mjs

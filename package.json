@@ -1,0 +1,34 @@
+{
+  "name": "y-core-v2",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "Y-CORE — gestor de juegos de Steam para Windows",
+  "packageManager": "pnpm@11.15.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "knip": "knip",
+    "check:docs": "node tools/scripts/check-docs.mjs",
+    "check:contract": "turbo run check:contract",
+    "check:staged": "node tools/scripts/check-staged.mjs",
+    "check:all": "pnpm lint && pnpm typecheck && pnpm test && pnpm knip && pnpm check:docs && pnpm check:contract",
+    "changeset": "changeset",
+    "prepare": "git config core.hooksPath .githooks"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.31.1",
+    "@commitlint/cli": "^19.6.1",
+    "@commitlint/config-conventional": "^19.6.0",
+    "@types/node": "^22.20.1",
+    "knip": "^6.31.0",
+    "turbo": "^2.10.8",
+    "typescript": "~5.9.3"
+  }
+}

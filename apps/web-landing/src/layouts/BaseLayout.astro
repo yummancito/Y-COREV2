@@ -1,0 +1,28 @@
+---
+// BaseLayout.astro
+// Para qué sirve: envuelve cada página con el <head> común (meta, favicon, estilos
+// globales) para que no se repita en cada .astro. Toda página nueva de la landing
+// pasa por aquí.
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#0b0d10" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles/global.css" />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

@@ -1,0 +1,5 @@
+#!/bin/sh
+# Valida el mensaje de commit contra Conventional Commits + scope-enum cerrado.
+# Ver commitlint.config.mjs y B.7 en docs/00-overview/roadmap.md.
+set -e
+pnpm exec commitlint --edit "$1"

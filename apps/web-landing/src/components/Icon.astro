@@ -1,0 +1,48 @@
+---
+// Icon.astro
+// Para qué sirve: centraliza los iconos SVG de la landing en un solo lugar
+// para no repetir markup en cada tarjeta. Sirve iconos grandes y visibles a
+// propósito — el pedido explícito fue "iconos visibles, nada de iconos
+// pequeños" — así que cada uso fija su tamaño vía CSS (.tarjeta__icono,
+// .logo__icono, .aviso__icono), no aquí.
+//
+// name: identifica qué trazo se dibuja. Si el nombre no existe, no se
+// renderiza nada (falla en silencio, no rompe el layout de la landing).
+interface Props {
+  name: 'biblioteca' | 'descargas' | 'actualizaciones' | 'marca' | 'aviso';
+}
+
+const { name } = Astro.props;
+
+type NombreDeTrazo = Exclude<Props['name'], 'marca' | 'aviso'>;
+
+const paths: Record<NombreDeTrazo, string> = {
+  // Cuadrícula de juegos: cuatro celdas, representa la biblioteca.
+  biblioteca:
+    'M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 0h7v7h-7v-7z',
+  // Flecha hacia una bandeja: representa el motor de descargas.
+  descargas: 'M12 3v12m0 0l-5-5m5 5l5-5M4 19h16',
+  // Escudo con check: representa el sistema de updates firmado.
+  actualizaciones:
+    'M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3zM8.5 12.5l2.5 2.5 4.5-5',
+};
+---
+
+{
+  name === 'marca' ? (
+    <svg class="logo__icono" viewBox="0 0 64 64" aria-hidden="true">
+      <rect width="64" height="64" rx="14" fill="var(--color-superficie-alta)" />
+      <path d="M20 20 L44 20 L44 44 L20 44 Z" fill="none" stroke="var(--color-acento)" stroke-width="4" />
+      <path d="M28 28 L36 28 L36 36 L28 36 Z" fill="var(--color-acento)" />
+    </svg>
+  ) : name === 'aviso' ? (
+    <svg class="aviso__icono" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" />
+      <path d="M12 8v5m0 3h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+    </svg>
+  ) : (
+    <svg class="tarjeta__icono" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d={paths[name]} stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  )
+}

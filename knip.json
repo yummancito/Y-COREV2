@@ -1,0 +1,21 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["tools/scripts/*.mjs"],
+      "project": ["tools/scripts/*.mjs"]
+    },
+    "packages/eslint-config": {
+      "project": ["*.js"]
+    },
+    "packages/result": {},
+    "packages/logger": {},
+    "apps/web-landing": {
+      "project": ["src/**/*.{astro,ts}"]
+    }
+  },
+  "ignoreDependencies": [
+    // Se invoca desde .githooks/commit-msg (pnpm exec commitlint), no vía import.
+    "@commitlint/cli"
+  ]
+}

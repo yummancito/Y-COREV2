@@ -1,0 +1,26 @@
+# docker-compose.yml — apps/web-landing
+#
+# Para qué sirve: levantar el dev server de la landing con hot reload dentro
+# de un contenedor, para que el entorno sea idéntico en cualquier PC.
+#
+# Uso:  docker compose -f apps/web-landing/docker-compose.yml up
+
+services:
+  web-landing-dev:
+    image: node:22-slim
+    working_dir: /repo
+    command: >
+      sh -c "corepack enable &&
+             corepack prepare pnpm@11.15.0 --activate &&
+             pnpm install --frozen-lockfile &&
+             pnpm --filter @ycore/web-landing dev"
+    ports:
+      - '4321:4321'
+    volumes:
+      - ../../:/repo
+      - web_landing_node_modules:/repo/node_modules
+    environment:
+      HOST: 0.0.0.0
+
+volumes:
+  web_landing_node_modules:
