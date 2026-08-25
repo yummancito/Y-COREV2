@@ -439,3 +439,55 @@ real (no una versión simplificada "solo con lo que el código actual busca"), e
 detecta cuando el código asume una estructura más plana de la que el formato real
 tiene — escribir el fixture primero, verificando contra documentación/muestras reales
 del formato, habría prevenido este bug antes de escribir la función.
+
+## 2026-08-25 — `chokidar` con un glob de archivo no funciona (y a veces crashea) en Windows
+
+**Contexto:** al escribir `main/features/steam/watcher.ts` (cierre de Fase 3), vigilando
+`<steamapps>/appmanifest_*.acf` en cada carpeta de biblioteca para re-importar la
+biblioteca automáticamente cuando Steam instala/actualiza/desinstala un juego.
+
+**Error:** dos fallos distintos según la ruta vigilada. (1) Bajo `os.tmpdir()` (que en
+esta máquina resuelve a una ruta con nombre corto 8.3, `C:\Users\USERUN~1\...`), el
+proceso de Node moría con `Assertion failed: !_wcsnicmp(filename, dir, dirlen), file
+src\win\fs-event.c` — un crash del propio binding nativo de libuv, no una excepción JS
+capturable. (2) Bajo una ruta larga normal (dentro del repo), no crasheaba pero tampoco
+disparaba ningún evento `add`/`change` — el test se colgaba hasta el timeout.
+
+**Causa:** se le pasaba a `chokidar.watch()` un patrón glob (`dir + '/appmanifest_*.acf'`)
+en vez de una ruta de directorio. En Windows, el matcher de globs de chokidar 4
+(picomatch) no conecta bien con el watcher nativo de archivos: no arma la suscripción de
+eventos correctamente sobre un patrón de archivo, y si la ruta de base resuelve a un
+nombre corto 8.3, el propio binding de libuv revienta al comparar el nombre canónico
+contra el corto (bug de la capa nativa, no de chokidar en sí).
+
+**Solución:** `startSteamLibraryWatcher` vigila el **directorio** `steamapps` completo
+(`depth: 0`, sin descender a subcarpetas) en vez de un glob de archivo, y filtra por
+nombre (`/^appmanifest_\d+\.acf$/`) dentro del callback de `add`/`change`/`unlink`. Se
+verificó con un script aislado (`chokidar.watch(dir, {depth:0})` sí dispara eventos de
+forma fiable en Windows; `chokidar.watch(dir + '/*.ext')` no).
+
+**Cómo evitarlo:** en este repo, cualquier uso futuro de `chokidar` (u otro watcher de
+archivos) en Windows vigila directorios, nunca patrones glob de archivo — filtrar por
+nombre en el handler es más barato que depurar un watcher que no dispara o que crashea
+el proceso según la ruta de la máquina. Si hace falta reproducir el bug del crash, basta
+con vigilar una ruta bajo `os.tmpdir()` con un glob.
+
+## 2026-08-25 — El test del watcher escribía el archivo antes de que chokidar estuviera listo
+
+**Contexto:** al arreglar el bug anterior (vigilar el directorio en vez de un glob), el
+test seguía sin detectar el evento `add` — ni un crash ni un log de error, simplemente
+nada, hasta el timeout de 10 s.
+
+**Error:** el test escribía el ACF inmediatamente después de que
+`startSteamLibraryWatcher()` devolviera, pero `chokidar.watch()` hace un crawling inicial
+asíncrono del directorio antes de que sus listeners de eventos estén realmente activos
+(evento `ready`). El archivo se creaba durante esa ventana y su evento `add` se perdía.
+
+**Solución:** `startSteamLibraryWatcher` ahora espera el evento `ready` de chokidar antes
+de devolver la función `stop()` — la llamada no se considera "arrancada" hasta que el
+watcher puede garantizar que no se pierde ningún evento posterior.
+
+**Cómo evitarlo:** cualquier código (de producto o de test) que dependa de un watcher de
+archivos recién creado debe esperar su señal de "listo" antes de asumir que está
+vigilando — nunca asumir que `watch()` es síncrono ni que el primer evento después de
+llamarlo se va a capturar.

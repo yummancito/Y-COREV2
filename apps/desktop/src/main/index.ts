@@ -13,6 +13,7 @@ import { createLogger } from '@ycore/logger';
 import { attachLifecycleHandlers, enforceSingleInstance } from './bootstrap/lifecycle.js';
 import { openAppDatabase } from './bootstrap/database.js';
 import { createMainWindow } from './bootstrap/window.js';
+import { startSteamWatcher } from './bootstrap/steam-watcher.js';
 import { buildRegistry } from './ipc/registry.js';
 import { registerIpcRouter } from './ipc/router.js';
 
@@ -43,6 +44,7 @@ if (!enforceSingleInstance(showOrCreateMainWindow)) {
     app.on('will-quit', () => db.$client.close());
 
     registerIpcRouter(buildRegistry(db));
+    void startSteamWatcher(db);
     mainWindow = createMainWindow();
     attachLifecycleHandlers(() => (mainWindow = createMainWindow()));
 

@@ -13,7 +13,7 @@ abre un issue para corregir este archivo.
 
 | Carpeta | Qué es | Estado |
 |---|---|---|
-| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 2: feature Biblioteca completa (main + renderer). Fase 3 parcial: feature Steam (detección + escaneo + importación). |
+| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 2: feature Biblioteca completa (main + renderer). Fase 3 completa: feature Steam (detección + escaneo + importación + watcher automático). |
 | `apps/web-landing` | Landing estática "próximamente", en Astro. Se despliega en Cloudflare Pages. | Contenido inicial hecho — ver `docs/00-overview/repo-map.md#apps-web-landing`. |
 
 ### `apps/desktop`
@@ -24,7 +24,7 @@ apps/desktop/
 ├── src/
 │   ├── main/
 │   │   ├── index.ts             bootstrap, <150 líneas
-│   │   ├── bootstrap/           window.ts (webPreferences seguros), lifecycle.ts
+│   │   ├── bootstrap/           window.ts (webPreferences seguros), lifecycle.ts, steam-watcher.ts
 │   │   └── ipc/
 │   │       ├── router.ts        ÚNICO ipcMain.handle del repo (ADR-0002)
 │   │       ├── registry.ts      mapa canal → handler
@@ -45,7 +45,8 @@ apps/desktop/
 ├── src/main/features/steam/      Fase 3: importar biblioteca real de Steam
 │   ├── library-scanner.ts         lee steamapps/appmanifest_*.acf, arma Game[]
 │   ├── service.ts                 orquesta library-scanner + LibraryRepository
-│   └── handlers.ts                traduce dominio ↔ forma exacta del contrato IPC
+│   ├── handlers.ts                traduce dominio ↔ forma exacta del contrato IPC
+│   └── watcher.ts                 vigila steamapps/ y re-importa solo con debounce
 ├── src/main/platform/
 │   ├── process-launcher.ts        único lugar que hace spawn() real (lanzar juegos)
 │   └── steam-registry.ts          único lugar que lee el registro de Windows (Steam)

@@ -11,6 +11,9 @@ biblioteca en disco y la sincroniza con la tabla `games` que ya usa la feature B
 - Guarda lo encontrado en la tabla `games` (inserta juegos nuevos, actualiza los que ya
   existían) — reutiliza `LibraryRepository` de `main/features/library`, no duplica
   persistencia.
+- Vigila las carpetas de biblioteca en segundo plano: si Steam instala, actualiza o
+  desinstala un juego mientras Y-CORE está abierto, la biblioteca se re-importa sola
+  (con debounce), sin que el usuario tenga que pulsar "importar" de nuevo.
 
 ## Quién la usa
 
@@ -26,10 +29,14 @@ apps/desktop/src/main/platform/steam-registry.ts
   findSteamInstallPath   único lugar que lee el registro de Windows para Steam
 
 apps/desktop/src/main/features/steam/
-  index.ts               API pública: SteamService, createSteamHandlers
+  index.ts               API pública: SteamService, createSteamHandlers, startSteamLibraryWatcher
   library-scanner.ts      lee disco (steamapps/, appmanifest_*.acf) y arma Game[]
   service.ts               orquesta library-scanner + LibraryRepository
   handlers.ts               traduce entre el dominio y la forma exacta del contrato IPC
+  watcher.ts               vigila steamapps/ y dispara una re-importación con debounce
+
+apps/desktop/src/main/bootstrap/steam-watcher.ts
+  startSteamWatcher   conecta el watcher de la feature al ciclo de vida real de Electron
 ```
 
 - `packages/steam-kit` — parsers puros (VDF, `libraryfolders.vdf`, `appmanifest_*.acf`,
@@ -45,10 +52,9 @@ Ver [data-model.md](data-model.md) para cómo se traduce un `appmanifest_*.acf` 
 
 ## Estado
 
-Fase 3 parcial: detección de Steam por registro, escaneo de biblioteca completo (multi-
-biblioteca, tolerante a ACFs corruptos) y sincronización con la DB, todo testeado. Falta
-el watcher con chokidar (sincronización automática cuando cambian los archivos ACF, sin
-que el usuario tenga que pulsar "importar" de nuevo) — sigue pendiente en el roadmap.
-`executablePath` de cada `Installation` importada queda en `null`: resolver qué binario
-ejecutar dentro de la carpeta de instalación es trabajo de `resolveLaunchCommand`
-(`packages/core-domain`), no de esta feature.
+Fase 3 completa: detección de Steam por registro, escaneo de biblioteca (multi-
+biblioteca, tolerante a ACFs corruptos), sincronización con la DB, e importación
+automática vía watcher de archivos — todo testeado. `executablePath` de cada
+`Installation` importada queda en `null`: resolver qué binario ejecutar dentro de la
+carpeta de instalación es trabajo de `resolveLaunchCommand` (`packages/core-domain`), no
+de esta feature.

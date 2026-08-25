@@ -79,8 +79,14 @@ async function readAppManifestsFrom(steamAppsDir: string): Promise<Game[]> {
  * `libraryfolders.vdf`. Un fallo al leer/parsear `libraryfolders.vdf` no es
  * fatal — se sigue con solo la biblioteca principal, igual que documentó el
  * v1 ("graceful degradation": nunca menos de una biblioteca disponible).
+ *
+ * Se exporta porque `watcher.ts` la reutiliza para saber qué carpetas vigilar
+ * — evita que el watcher reimplemente su propia resolución de bibliotecas.
+ *
+ * @param steamPath - Ruta de instalación de Steam (de {@link findSteamInstallPath}).
+ * @returns Al menos la carpeta `steamapps` principal; nunca un array vacío.
  */
-async function resolveSteamAppsDirs(steamPath: string): Promise<string[]> {
+export async function resolveSteamAppsDirs(steamPath: string): Promise<string[]> {
   const primary = join(steamPath, 'steamapps');
   const libraryFoldersPath = join(primary, 'libraryfolders.vdf');
 

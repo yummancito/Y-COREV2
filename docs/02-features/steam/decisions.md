@@ -36,11 +36,30 @@ caso de uso real; si en el futuro hace falta importar selectivamente, se añade 
 opcional a `steam.importLibrary` sin romper compatibilidad (Zod permite campos opcionales
 nuevos).
 
-## Sin watcher de archivos (chokidar) todavía
+## El watcher vigila directorios, nunca un patrón glob de archivo
 
-El roadmap original de Fase 3 incluye sincronización automática cuando cambian los ACF en
-disco (instalar/desinstalar un juego fuera de Y-CORE). No está implementado: por ahora la
-sincronización es manual (`steam.importLibrary` bajo demanda desde el renderer). Añadir un
-watcher permanente implica gestionar su ciclo de vida (arrancar con la app, pararlo al
-cerrar, debounce de eventos de escritura en ráfaga) — se deja para cuando exista la UI que
-lo dispare, en vez de adelantar la infraestructura sin consumidor.
+`watcher.ts` vigila la carpeta `steamapps` completa (`depth: 0`) y filtra por nombre
+(`appmanifest_\d+\.acf`) dentro del callback, en vez de pasarle a chokidar un patrón como
+`steamapps/appmanifest_*.acf`. En Windows, un glob de archivo no dispara eventos de forma
+fiable con el watcher nativo de chokidar y, si la ruta de base resuelve a un nombre corto
+8.3 (algo común bajo `%TEMP%` en algunas máquinas), directamente crashea el proceso — ver
+`aprendizaje.md`. Vigilar el directorio es la forma verificada de que funcione en
+cualquier máquina Windows.
+
+## Re-importación completa en cada cambio, no un diff incremental
+
+Cuando el watcher detecta un ACF nuevo/modificado/borrado, dispara
+`SteamService.importLibrary()` completo (vuelve a escanear todas las bibliotecas), en vez
+de parsear solo el archivo que cambió y hacer un upsert puntual. Con la cantidad de juegos
+que tiene una biblioteca real (cientos, no millones) un escaneo completo es barato, y
+mantiene una sola ruta de código para "sincronizar la biblioteca" en vez de dos
+(importación manual completa vs. actualización incremental por archivo) que podrían
+divergir.
+
+## Debounce de 2 segundos, un timer por watcher (no por archivo)
+
+Steam reescribe un ACF varias veces seguidas durante una instalación (progreso, tamaño
+final, `lastUpdated`), y una instalación con varios juegos en paralelo toca varios
+archivos casi a la vez. Un único temporizador de debounce compartido (no uno por archivo)
+agrupa toda esa actividad en una sola re-importación por ráfaga, en vez de disparar N
+escaneos completos casi simultáneos.

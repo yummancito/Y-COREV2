@@ -7,3 +7,4 @@
 
 export { SteamService } from './service.js';
 export { createSteamHandlers } from './handlers.js';
+export { startSteamLibraryWatcher } from './watcher.js';

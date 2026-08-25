@@ -1,4 +1,4 @@
-# Dependencias
+                    # Dependencias
 node_modules/
 .pnpm-store/
 
@@ -32,6 +32,7 @@ wrangler.toml.local
 coverage/
 playwright-report/
 test-results/
+.tmp-tests/
 
 # Base de datos local (vive de verdad en userData de Electron, no en el repo)
 *.sqlite
