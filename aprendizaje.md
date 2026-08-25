@@ -375,3 +375,12 @@ verificar en una máquina de desarrollo real sin las restricciones de este entor
 crash silencioso ocurriera ahí también, el primer paso de diagnóstico sería un dump de
 proceso real (Process Explorer con "Create dump" al crashear, o `--enable-crashpad` con
 un servidor de crash reports local) — herramientas que este sandbox no expone.
+
+**Reconfirmado en sesión posterior (mismo día):** se repitió el intento con el mismo
+resultado exacto — build limpio, binding recompilado y verificado (ABI 130), el proceso
+Electron muere en el mismo punto sin logs. Hallazgo adicional: procesos `electron.exe`
+zombie de una sesión de debug anterior (dejados corriendo en background sin matar
+correctamente) confundieron el diagnóstico inicial al aparecer como "procesos vivos" en
+`Get-Process` — verificar siempre `CommandLine` vía `Get-CimInstance Win32_Process` para
+confirmar que un proceso encontrado es realmente el lanzamiento actual y no un sobrante,
+antes de interpretar su estado como señal de progreso.
