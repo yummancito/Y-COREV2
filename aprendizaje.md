@@ -384,3 +384,58 @@ correctamente) confundieron el diagnóstico inicial al aparecer como "procesos v
 `Get-Process` — verificar siempre `CommandLine` vía `Get-CimInstance Win32_Process` para
 confirmar que un proceso encontrado es realmente el lanzamiento actual y no un sobrante,
 antes de interpretar su estado como señal de progreso.
+
+---
+
+## 2026-08-25 — `parseVdf` no detectaba llaves de sección sin cerrar
+
+**Contexto:** al escribir `packages/steam-kit/src/vdf/parse-vdf.ts` (Fase 3), el test
+"devuelve AppError io.failed ante llaves desbalanceadas" (`'"key"\n{\n\t"a" "b"\n'`, sin
+`}` final) fallaba: el parser devolvía `ok(...)` en vez de `err(...)`.
+
+**Error:** `parseChildren` trataba "se acabaron los tokens" igual que "encontré la llave
+de cierre" — en ambos casos retornaba los children acumulados sin distinguir el caso.
+
+**Causa:** la condición `if (token === undefined || token.type === 'brace-close')`
+combinaba dos situaciones muy distintas: llegar al final del archivo en el nivel raíz
+(correcto, ahí no hay ninguna llave de apertura que cerrar) y llegar al final del
+archivo dentro de una sección anidada sin haber visto su `}` correspondiente (un
+archivo corrupto de verdad).
+
+**Solución:** separar los dos casos — si `token === undefined` y `depth > 0`, lanzar
+explícitamente ("llave de sección sin cerrar"); si `depth === 0`, es el fin normal del
+árbol de nivel superior.
+
+**Cómo evitarlo:** cuando una función recursiva de parseo comparte el mismo camino de
+salida para "caso final válido" y "caso de error", verificar con un test que fuerce
+exactamente la condición de error (aquí: EOF dentro de una sección abierta) — el caso
+feliz (EOF en la raíz) es el que se prueba por accidente casi siempre, y enmascara el
+bug hasta que alguien pasa un archivo real corrupto.
+
+---
+
+## 2026-08-25 — `parseDepotKeys` no encontraba la sección `depots` real de `config.vdf`
+
+**Contexto:** al escribir `packages/steam-kit/src/depot-keys.ts` (Fase 3), con un
+fixture de test que modela la jerarquía real de `config.vdf`
+(`InstallConfigStore > Software > Valve > Steam > depots`).
+
+**Error:** el test "extrae varias claves de depot desde la forma real anidada bajo
+Steam" fallaba — `result.value.get('731')` devolvía `undefined`.
+
+**Causa:** la función buscaba `Steam` (y luego `depots` dentro) solo en el **nivel
+raíz** del árbol VDF, asumiendo una jerarquía plana. El `config.vdf` real de Steam
+anida `Steam` cuatro niveles más abajo (`InstallConfigStore > Software > Valve >
+Steam`), así que `findChild(root, 'Steam')` nunca lo encontraba.
+
+**Solución:** `findDepotsSection()` busca la sección `depots` recursivamente en
+cualquier profundidad del árbol (acotada por el mismo límite de 64 niveles que usa el
+propio parser), en vez de asumir una ruta fija — la ruta intermedia
+(`InstallConfigStore/Software/Valve`) no es parte del contrato real que a Y-CORE le
+importa, solo el nombre de la sección `depots` en sí, que es único y no ambiguo.
+
+**Cómo evitarlo:** al escribir el fixture de test con la jerarquía real de un archivo
+real (no una versión simplificada "solo con lo que el código actual busca"), el test
+detecta cuando el código asume una estructura más plana de la que el formato real
+tiene — escribir el fixture primero, verificando contra documentación/muestras reales
+del formato, habría prevenido este bug antes de escribir la función.

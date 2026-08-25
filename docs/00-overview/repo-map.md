@@ -98,10 +98,11 @@ Decisiones de estilo (a propósito distintas de cualquier referencia externa):
 | `packages/eslint-config` | ESLint 9 flat config compartida: límites de tamaño (B.2), boundaries (B.3), no-any y no-raw-ipc (B.1/B.6). | Implementado. |
 | `packages/ipc-contract` | El corazón (ADR-0002): mapa de canales IPC con Zod input/output, `.describe()` obligatorio verificado en runtime. | Implementado, con tests, cobertura 100%. Canales `app.ping`, `library.list`, `library.launch`. |
 | `packages/core-domain` | `Game`, `Installation`, `resolveLaunchCommand` — tipos y reglas puras, cero Electron/`node:fs`. | Implementado, con tests, cobertura 100%. Usado por `main/features/library`. |
+| `packages/steam-kit` | Parsers puros de VDF/ACF: `parseVdf`, `parseLibraryFolders`, `parseAppManifest`, `parseLoginUsers`, `parseDepotKeys`. | Implementado (Fase 3), 40 tests, cobertura ~98%. Recibe contenido ya leído, cero Electron/`node:fs`. |
 
-Las demás carpetas de `packages/` que aparecen en el roadmap (`steam-kit`,
-`updater-client`, `ui-kit`, `i18n`) todavía no existen — se crean en las fases
-correspondientes (ver `docs/00-overview/roadmap.md`).
+Las demás carpetas de `packages/` que aparecen en el roadmap (`updater-client`, `ui-kit`,
+`i18n`) todavía no existen — se crean en las fases correspondientes (ver
+`docs/00-overview/roadmap.md`).
 
 ## `services/` y `plugins/`
 

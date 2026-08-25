@@ -16,6 +16,9 @@ const SCOPES_EXISTENTES = [
   'logger',
   'tsconfig',
   'eslint-config',
+  'ipc-contract',
+  'core-domain',
+  'steam-kit',
   // infraestructura del propio repo (sin código de producto)
   'repo',
   'docs',
