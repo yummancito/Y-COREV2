@@ -49,7 +49,10 @@ apps/desktop/
 │   └── watcher.ts                 vigila steamapps/ y re-importa solo con debounce
 ├── src/main/features/downloads/  Fase 4 (ADR-0004): motor de descargas, en construcción
 │   ├── download-record.ts         DownloadState (core-domain) + metadatos fijos
-│   └── repository.ts              tabla `downloads` ↔ DownloadRecord, índice único de dedupe
+│   ├── repository.ts              tabla `downloads` ↔ DownloadRecord, índice único de dedupe
+│   ├── http-client.ts             fetch con Range/If-Range: reanudación real
+│   ├── verifier.ts                SHA-256 incremental, verificación final del archivo
+│   └── extractor.ts               ZIP con yauzl, protegido contra zip-slip
 ├── src/main/platform/
 │   ├── process-launcher.ts        único lugar que hace spawn() real (lanzar juegos)
 │   └── steam-registry.ts          único lugar que lee el registro de Windows (Steam)

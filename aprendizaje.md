@@ -491,3 +491,29 @@ watcher puede garantizar que no se pierde ningún evento posterior.
 archivos recién creado debe esperar su señal de "listo" antes de asumir que está
 vigilando — nunca asumir que `watch()` es síncrono ni que el primer evento después de
 llamarlo se va a capturar.
+
+## 2026-08-25 — `fetch`/`Response`/`ReadableStream` no tipaban en `main/`, aunque Node los expone en runtime
+
+**Contexto:** al escribir `main/features/downloads/http-client.ts` (Fase 4, ADR-0004),
+usando el `fetch` global de Node/undici para el cliente HTTP de descargas — cero
+dependencias nuevas, según el ADR.
+
+**Error:** `tsc` fallaba con `Cannot find name 'HeadersInit'` y ESLint marcaba
+`no-unsafe-assignment` en `response = await fetch(...)`: TypeScript trataba `fetch` como
+`any` implícito, a pesar de que Node 20+ lo expone como global real y el código corría
+sin problema.
+
+**Causa:** `apps/desktop/tsconfig.node.json` declara `"types": ["electron-vite/node"]`
+explícitamente. En TypeScript, declarar `compilerOptions.types` **desactiva la
+auto-inclusión de `@types/node`** (el comportamiento por defecto sin ese campo): sin
+`@types/node` cargado, no hay declaraciones de `fetch`, `Response`, `Headers`,
+`ReadableStream`, etc., aunque el runtime sí los tenga.
+
+**Solución:** se añadió `"node"` a la lista: `"types": ["node", "electron-vite/node"]`.
+
+**Cómo evitarlo:** cualquier `tsconfig.json` de este repo que declare `compilerOptions.
+types` explícitamente debe incluir `"node"` en la lista si el código corre bajo Node
+(main, preload, scripts) — de lo contrario los globals de Node (no solo `fetch`: también
+`Buffer`, `process`, etc., aunque esos ya funcionaban por importarse indirectamente) caen
+en `any` sin ningún error obvio hasta que se usa una API que TypeScript no puede resolver
+de ningún otro lado.

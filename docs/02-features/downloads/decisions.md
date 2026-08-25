@@ -30,3 +30,24 @@ responsabilidad exclusiva de `transition()` en `core-domain` (ADR-0004, punto 2)
 `service.ts` (todavía no escrito) es quien debe llamar a `transition()` antes de pasarle
 el resultado a `save()`. Repetir la validación en el repositorio sería una segunda fuente
 de verdad sobre qué transiciones son legales.
+
+## La protección zip-slip de `extractor.ts` es redundante con `yauzl`, y es intencional
+
+`yauzl` ya rechaza (con su propio `Error`) cualquier entrada de ZIP con un segmento `..`
+o una ruta absoluta, antes de que nuestro código llegue a verla. `resolveEntryPath` en
+`extractor.ts` repite esa comprobación por su cuenta, contra `installPath` resuelto. Se
+mantiene la comprobación propia a pesar de la redundancia porque: (1) es la que hace el
+ADR-0004 explícito y auditable sin depender del comportamiento interno de una librería de
+terceros, y (2) si `yauzl` cambiara esa validación en una versión futura, la protección de
+Y-CORE seguiría en pie. `isPathTraversalError()` reconoce ambas fuentes del mismo error
+(el mensaje propio y el de `yauzl`) para que las dos capas devuelvan el mismo
+`AppError` `download.zip-slip` al llamador.
+
+## El fixture de test de zip-slip se construye a mano, no con `yazl`
+
+`yazl` (la librería usada para construir ZIPs de prueba normales) valida y rechaza
+cualquier `metadataPath` con un segmento `..` — la misma protección que tiene `yauzl` al
+leer, pero en el lado de escritura. Para poder testear que `extractZip` rechaza una
+entrada maliciosa hace falta un ZIP que contenga esa entrada, así que
+`extractor.test-helpers.ts` arma los bytes del formato ZIP a mano (`buildMaliciousZip`),
+sin pasar por ninguna librería que valide el nombre.

@@ -28,6 +28,7 @@
     "better-sqlite3": "^13.0.3",
     "chokidar": "^4.0.3",
     "drizzle-orm": "^0.45.2",
+    "yauzl": "^3.4.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -38,6 +39,8 @@
     "@types/better-sqlite3": "^9.6.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/yauzl": "^3.4.0",
+    "@types/yazl": "^3.3.1",
     "@vitejs/plugin-react": "^4.7.0",
     "@vitest/coverage-v8": "^4.1.10",
     "@ycore/eslint-config": "workspace:*",
@@ -51,6 +54,7 @@
     "react-dom": "^19.0.0",
     "tsx": "^4.23.12",
     "vite": "^7.0.0",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "yazl": "^3.3.1"
   }
 }

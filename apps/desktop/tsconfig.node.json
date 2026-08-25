@@ -1,7 +1,7 @@
 {
   "extends": "@ycore/tsconfig/base.json",
   "compilerOptions": {
-    "types": ["electron-vite/node"]
+    "types": ["node", "electron-vite/node"]
   },
   "include": ["src/main/**/*.ts", "src/preload/**/*.ts", "electron.vite.config.ts"]
 }
