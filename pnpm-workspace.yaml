@@ -5,6 +5,7 @@ packages:
   - 'services/*'
   - 'tools/cli'
 allowBuilds:
+  electron: true
   esbuild: true
   sharp: true
 minimumReleaseAgeExclude:

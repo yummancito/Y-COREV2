@@ -62,6 +62,18 @@ function toPosixRelative(repoRoot, absPath) {
 }
 
 /**
+ * Quita comentarios `//` y `/* *\/` de línea y bloque antes de buscar patrones de
+ * código real (R3, R3b, R4, R5). Sin esto, un comentario o TSDoc que *menciona*
+ * `ipcMain.handle` o `: any` como texto (explicando qué NO hacer) dispara un falso
+ * positivo — pasó de verdad al documentar `registry.ts`. No toca strings con
+ * comillas para mantener la función simple; un `any` dentro de un string literal
+ * es un caso raro que no vale la complejidad de un parser completo aquí.
+ */
+function stripComments(content) {
+  return content.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+}
+
+/**
  * Aplica todas las reglas a un archivo.
  * @returns {string[]} lista de violaciones (vacía = todo bien)
  */
@@ -124,9 +136,12 @@ function checkFile(absPath) {
 
   if (name.endsWith('.md')) return violations;
 
+  const codeOnly = stripComments(content);
+  const codeOnlyLines = codeOnly.split('\n');
+
   // R3 — ipcMain.handle fuera del router
   const isRouter = rel.endsWith('apps/desktop/src/main/ipc/router.ts');
-  if (!isRouter && /ipcMain\s*\.\s*(handle|handleOnce|on)\b/.test(content)) {
+  if (!isRouter && /ipcMain\s*\.\s*(handle|handleOnce|on)\b/.test(codeOnly)) {
     violations.push(
       `R3: "ipcMain.handle/on" solo puede existir en apps/desktop/src/main/ipc/router.ts. ` +
         `Declara el canal en packages/ipc-contract y regístralo en el registry.`,
@@ -135,7 +150,7 @@ function checkFile(absPath) {
 
   // R3b — ipcRenderer fuera del preload
   const isPreload = rel.includes('apps/desktop/src/preload/');
-  if (!isPreload && /ipcRenderer\s*\.\s*(invoke|send|on)\b/.test(content)) {
+  if (!isPreload && /ipcRenderer\s*\.\s*(invoke|send|on)\b/.test(codeOnly)) {
     violations.push(
       `R3b: "ipcRenderer" solo puede usarse en apps/desktop/src/preload/. ` +
         `Desde el renderer usa el cliente tipado (window.ycore.<feature>.<método>).`,
@@ -143,7 +158,7 @@ function checkFile(absPath) {
   }
 
   // R4 — invoke genérico en el preload
-  if (isPreload && /invoke\s*:\s*\(\s*channel\b/.test(content)) {
+  if (isPreload && /invoke\s*:\s*\(\s*channel\b/.test(codeOnly)) {
     violations.push(
       `R4: el preload NO puede exponer un invoke(channel, ...) genérico. ` +
         `Ese fue el agujero de seguridad del v1. Genera un método por canal desde el contrato.`,
@@ -151,8 +166,8 @@ function checkFile(absPath) {
   }
 
   // R5 — any explícito
-  lines.forEach((line, i) => {
-    if (/\bas\s+any\b|:\s*any\b|<any>/.test(line) && !line.includes('eslint-disable')) {
+  codeOnlyLines.forEach((line, i) => {
+    if (/\bas\s+any\b|:\s*any\b|<any>/.test(line)) {
       violations.push(
         `R5: "any" explícito en la línea ${i + 1}. Usa "unknown" + Zod para parsear.`,
       );

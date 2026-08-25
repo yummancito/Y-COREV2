@@ -1,0 +1,33 @@
+#!/usr/bin/env node
+/**
+ * check-contract — verifica la correspondencia bidireccional entre
+ * `packages/ipc-contract` y `apps/desktop/src/main/ipc/registry.ts`.
+ *
+ * Sirve para que "todo canal tiene handler, todo handler está en el contrato"
+ * (ADR-0002) sea algo que CI verifica, no algo que se asume. TypeScript ya
+ * fuerza esto en compilación (`Registry` exige las 100% de las claves de
+ * `ChannelName`), pero este script existe para que `pnpm check:contract`
+ * tenga contenido real y falle con un mensaje claro si algún día el tipado
+ * se relaja (p. ej. un `Partial<Registry>` colado por error).
+ *
+ * Uso:  pnpm check:contract (desde apps/desktop)
+ * Salida: exit 0 = ok · exit 1 = desincronizado (lista qué falta)
+ */
+
+import { contract } from '@ycore/ipc-contract';
+import { registry } from './registry.js';
+
+const contractChannels = new Set(Object.keys(contract));
+const registryChannels = new Set(Object.keys(registry));
+
+const sinHandler = [...contractChannels].filter((c) => !registryChannels.has(c));
+const sinCanal = [...registryChannels].filter((c) => !contractChannels.has(c));
+
+if (sinHandler.length > 0 || sinCanal.length > 0) {
+  console.error('FALLO: check:contract no pasó:\n');
+  for (const c of sinHandler) console.error(`  • "${c}" está en el contrato pero no tiene handler en registry.ts`);
+  for (const c of sinCanal) console.error(`  • "${c}" tiene handler en registry.ts pero no está en el contrato`);
+  process.exit(1);
+}
+
+console.log(`OK: check:contract — ${contractChannels.size} canal(es) con correspondencia 1 a 1.`);

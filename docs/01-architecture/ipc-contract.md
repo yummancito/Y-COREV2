@@ -1,0 +1,26 @@
+# Contrato IPC — canales
+
+> **Generado automáticamente desde `packages/ipc-contract`. No editar a mano.**
+> Para cambiar esta página, edita el `.describe()` del canal en el contrato y
+> vuelve a correr `pnpm --filter @ycore/desktop docs:ipc`.
+
+Cada canal se invoca desde el renderer como `window.ycore.<namespace>.<verbo>(input)`.
+Ver ADR-0002 para el diseño completo de la frontera IPC.
+
+## Namespace `app.*`
+
+### `app.ping`
+
+Sin payload: solo confirma que el puente IPC responde.
+
+**Input:**
+
+  (sin campos)
+
+**Output:**
+
+Confirmación de que el main process está vivo y respondiendo.
+
+  - `pong: boolean`
+  - `receivedAt: string`
+

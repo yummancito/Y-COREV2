@@ -12,7 +12,7 @@ import importPlugin from 'eslint-plugin-import';
 import tseslint from 'typescript-eslint';
 import { rulesDeTamano } from './rules-de-tamano.js';
 import { boundariesSettings, rulesDeBoundaries } from './rules-de-boundaries.js';
-import { rulesDeTipos, noRawIpcRule } from './rules-de-ipc-y-tipos.js';
+import { rulesDeTipos, noRawIpcConfigs } from './rules-de-ipc-y-tipos.js';
 
 export default tseslint.config(
   js.configs.recommended,
@@ -40,7 +40,7 @@ export default tseslint.config(
       ...rulesDeTamano,
       ...rulesDeBoundaries,
       ...rulesDeTipos,
-      ...noRawIpcRule(),
     },
   },
+  ...noRawIpcConfigs().map((config) => ({ files: ['**/*.{ts,tsx}'], ...config })),
 );

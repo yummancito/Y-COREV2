@@ -1,0 +1,41 @@
+{
+  "name": "@ycore/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "Y-CORE — app de escritorio (Electron).",
+  "type": "module",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "lint": "eslint src",
+    "test": "vitest run --coverage",
+    "check:contract": "tsx src/main/ipc/check-contract.ts",
+    "docs:ipc": "tsx src/main/ipc/generate-docs.ts"
+  },
+  "dependencies": {
+    "@electron-toolkit/utils": "^4.0.0",
+    "@ycore/ipc-contract": "workspace:*",
+    "@ycore/logger": "workspace:*",
+    "@ycore/result": "workspace:*",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "@ycore/eslint-config": "workspace:*",
+    "@ycore/tsconfig": "workspace:*",
+    "electron": "^33.4.11",
+    "electron-vite": "^5.0.0",
+    "eslint": "^9.20.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tsx": "^4.23.12",
+    "vite": "^7.0.0",
+    "vitest": "^4.1.10"
+  }
+}

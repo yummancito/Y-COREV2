@@ -14,30 +14,49 @@ export const rulesDeTipos = {
   '@typescript-eslint/no-unsafe-return': 'error',
 };
 
+const IPC_MAIN_SELECTOR =
+  "CallExpression[callee.object.name='ipcMain'][callee.property.name=/^(handle|handleOnce|on)$/]";
+const IPC_RENDERER_SELECTOR =
+  "CallExpression[callee.object.name='ipcRenderer'][callee.property.name=/^(invoke|send|on)$/]";
+
 /**
- * Construye la regla `no-restricted-syntax` que impide `ipcMain.handle/on` e
- * `ipcRenderer.*` fuera de sus archivos permitidos. Es una función (no una
- * constante) porque el mensaje cambia según si el override es para main o
- * para el resto del árbol.
+ * Dos bloques de config flat (no un objeto de reglas) porque cada uno necesita
+ * su propio `ignores`: el router.ts es el ÚNICO archivo permitido a llamar
+ * `ipcMain.handle`, así que la regla que se lo prohíbe al resto del árbol no
+ * puede aplicarse también a él — un `files`/`ignores` por regla es la única
+ * forma de expresar esa excepción en ESLint 9 flat config sin resolverlo con
+ * comentarios `eslint-disable` en el propio router (que además violaría la
+ * regla R6 de justificación por archivo especial).
  */
-export function noRawIpcRule() {
-  return {
-    'no-restricted-syntax': [
-      'error',
-      {
-        selector:
-          "CallExpression[callee.object.name='ipcMain'][callee.property.name=/^(handle|handleOnce|on)$/]",
-        message:
-          'ipcMain.handle/on solo puede existir en apps/desktop/src/main/ipc/router.ts. ' +
-          'Declara el canal en packages/ipc-contract (regla B.1 del roadmap).',
+export function noRawIpcConfigs() {
+  return [
+    {
+      ignores: ['**/main/ipc/router.ts'],
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          {
+            selector: IPC_MAIN_SELECTOR,
+            message:
+              'ipcMain.handle/on solo puede existir en apps/desktop/src/main/ipc/router.ts. ' +
+              'Declara el canal en packages/ipc-contract (regla B.1 del roadmap).',
+          },
+        ],
       },
-      {
-        selector:
-          "CallExpression[callee.object.name='ipcRenderer'][callee.property.name=/^(invoke|send|on)$/]",
-        message:
-          'ipcRenderer solo puede usarse en apps/desktop/src/preload/. Desde el renderer ' +
-          'usa el cliente tipado generado (window.ycore.<feature>.<método>).',
+    },
+    {
+      ignores: ['**/preload/**'],
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          {
+            selector: IPC_RENDERER_SELECTOR,
+            message:
+              'ipcRenderer solo puede usarse en apps/desktop/src/preload/. Desde el renderer ' +
+              'usa el cliente tipado generado (window.ycore.<feature>.<método>).',
+          },
+        ],
       },
-    ],
-  };
+    },
+  ];
 }

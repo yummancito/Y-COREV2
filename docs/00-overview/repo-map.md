@@ -13,8 +13,31 @@ abre un issue para corregir este archivo.
 
 | Carpeta | Qué es | Estado |
 |---|---|---|
-| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Estructura de carpetas creada, sin código todavía (Fase 0/1). |
+| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 1: router IPC único, preload sin invoke() genérico, ventana con contextIsolation/sandbox on. Sin features todavía. |
 | `apps/web-landing` | Landing estática "próximamente", en Astro. Se despliega en Cloudflare Pages. | Contenido inicial hecho — ver `docs/00-overview/repo-map.md#apps-web-landing`. |
+
+### `apps/desktop`
+
+```
+apps/desktop/
+├── electron.vite.config.ts     un config para main+preload+renderer, HMR en los tres
+├── src/
+│   ├── main/
+│   │   ├── index.ts             bootstrap, <150 líneas
+│   │   ├── bootstrap/           window.ts (webPreferences seguros), lifecycle.ts
+│   │   └── ipc/
+│   │       ├── router.ts        ÚNICO ipcMain.handle del repo (ADR-0002)
+│   │       ├── registry.ts      mapa canal → handler
+│   │       ├── check-contract.ts   pnpm check:contract — correspondencia contrato↔registry
+│   │       └── generate-docs.ts    pnpm docs:ipc — genera docs/01-architecture/ipc-contract.md
+│   ├── preload/
+│   │   ├── index.ts             expone window.ycore, sin invoke() genérico
+│   │   └── build-bridge.ts       arma el árbol {namespace: {verbo: fn}} desde el contrato
+│   └── renderer/                React 19 mínimo, prueba window.ycore.app.ping()
+```
+
+Sin `main/features/*` ni `renderer/features/*` todavía — la primera feature vertical
+(biblioteca) es Fase 2.
 
 ### `apps/web-landing`
 
@@ -50,10 +73,11 @@ Decisiones de estilo (a propósito distintas de cualquier referencia externa):
 | `packages/logger` | `createLogger(scope)` — el único logger de main/preload/renderer. Formato legible en dev, JSON en producción. | Implementado, con tests. |
 | `packages/tsconfig` | `tsconfig` base compartido por todo el monorepo. | Implementado. |
 | `packages/eslint-config` | ESLint 9 flat config compartida: límites de tamaño (B.2), boundaries (B.3), no-any y no-raw-ipc (B.1/B.6). | Implementado. |
+| `packages/ipc-contract` | El corazón (ADR-0002): mapa de canales IPC con Zod input/output, `.describe()` obligatorio verificado en runtime. | Implementado, con tests, cobertura 100%. Solo el canal de referencia `app.ping`. |
 
-Las demás carpetas de `packages/` que aparecen en el roadmap (`ipc-contract`,
-`core-domain`, `steam-kit`, `updater-client`, `ui-kit`, `i18n`) todavía no existen —
-se crean en las fases correspondientes (ver `docs/00-overview/roadmap.md`).
+Las demás carpetas de `packages/` que aparecen en el roadmap (`core-domain`, `steam-kit`,
+`updater-client`, `ui-kit`, `i18n`) todavía no existen — se crean en las fases
+correspondientes (ver `docs/00-overview/roadmap.md`).
 
 ## `services/` y `plugins/`
 

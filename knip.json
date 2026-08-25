@@ -10,8 +10,13 @@
     },
     "packages/result": {},
     "packages/logger": {},
+    "packages/ipc-contract": {},
     "apps/web-landing": {
       "project": ["src/**/*.{astro,ts}"]
+    },
+    "apps/desktop": {
+      "entry": ["src/renderer/main.tsx"],
+      "project": ["src/**/*.{ts,tsx}"]
     }
   },
   "ignoreDependencies": [
