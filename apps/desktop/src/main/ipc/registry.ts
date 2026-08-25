@@ -18,6 +18,7 @@ import { contract, type ChannelInput, type ChannelName, type ChannelOutput } fro
 import type { YCoreDatabase } from '../db/index.js';
 import { createLibraryHandlers, LibraryRepository, LibraryService } from '../features/library/index.js';
 import { createSteamHandlers, SteamService } from '../features/steam/index.js';
+import { createDownloadHandlers, DownloadRepository, DownloadService } from '../features/downloads/index.js';
 
 /**
  * Firma de un handler para el canal `C`: recibe input ya validado, nunca lanza.
@@ -47,11 +48,16 @@ export function buildRegistry(db: YCoreDatabase): Registry {
   const libraryRepository = new LibraryRepository(db);
   const library = createLibraryHandlers(new LibraryService(libraryRepository));
   const steam = createSteamHandlers(new SteamService(libraryRepository));
+  const downloads = createDownloadHandlers(new DownloadService(new DownloadRepository(db)));
 
   return {
     'app.ping': handleAppPing,
     'library.list': library.listGames,
     'library.launch': library.launchGame,
     'steam.importLibrary': steam.importLibrary,
+    'downloads.enqueue': downloads.enqueue,
+    'downloads.list': downloads.list,
+    'downloads.pause': downloads.pause,
+    'downloads.cancel': downloads.cancel,
   };
 }

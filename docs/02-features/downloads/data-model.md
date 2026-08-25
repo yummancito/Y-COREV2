@@ -77,8 +77,10 @@ segundo y viajan solo en el evento de progreso (ver ADR-0004, punto 3).
 
 El índice único parcial `downloads_active_app` es la mitad de la deduplicación (ADR-0004,
 punto 4): impide, a nivel de SQLite, que exista más de una fila activa (`status` distinto
-de `done`/`failed`) para el mismo `appId`. La otra mitad (un `Map<id, AbortController>`
-en memoria) todavía no existe — llega con `service.ts`.
+de `done`/`failed`) para el mismo `appId`. La otra mitad es el `Map<string,
+AbortController>` en memoria de `DownloadService` (`inFlight`), que protege contra dos
+llamadas IPC casi simultáneas abriendo dos streams sobre la misma fila — algo que el
+índice de la DB no puede ver.
 
 ## Mapeo
 
@@ -87,3 +89,28 @@ en memoria) todavía no existe — llega con `service.ts`.
 con `appError(code)` — `retriable` se recalcula por defecto según el código, porque la
 tabla no tiene una columna `retriable` propia (ver el comentario en
 `repository-save.test.ts`).
+
+## Forma del canal IPC (`packages/ipc-contract/src/channels/downloads.ts`)
+
+`downloadStateSchema` espeja `DownloadState` con un `z.discriminatedUnion('status', ...)`
+— la misma forma, sin importar `core-domain` desde el contrato (regla de A.3: el
+contrato no depende de tipos internos del dominio, para no acoplar la frontera IPC a
+cómo esté modelado el estado por dentro).
+
+```ts
+// downloads.list.output
+{ downloads: [{ state: DownloadState, appId: number }] }
+
+// downloads.enqueue.input
+{ appId: number, sourceUrl: string, installPath: string, expectedSha256: string /* 64 hex */ }
+
+// downloads.enqueue.output
+{ id: string }
+
+// downloads.pause.input / downloads.cancel.input
+{ id: string }
+```
+
+`downloads.pause`/`downloads.cancel` devuelven `{}` en éxito — no hay dato útil que
+devolver más allá de "la operación se hizo"; el estado resultante se lee en el siguiente
+`downloads.list` (polling).

@@ -24,6 +24,67 @@ Confirmación de que el main process está vivo y respondiendo.
   - `pong: boolean`
   - `receivedAt: string`
 
+## Namespace `downloads.*`
+
+### `downloads.cancel`
+
+Cancela y borra una descarga.
+
+**Input:**
+
+  - `id: string` — Id de la descarga a cancelar.
+
+**Output:**
+
+La descarga y su archivo parcial quedaron borrados.
+
+  (sin campos)
+
+### `downloads.enqueue`
+
+Encola una descarga nueva.
+
+**Input:**
+
+  - `appId: integer` — AppID del juego a descargar.
+  - `sourceUrl: string` — De dónde descargar el archivo.
+  - `installPath: string` — Dónde extraer/instalar tras verificar.
+  - `expectedSha256: string` — Hash SHA-256 esperado del archivo, en hexadecimal.
+
+**Output:**
+
+La descarga quedó encolada (estado queued).
+
+  - `id: string` — Id de la descarga encolada.
+
+### `downloads.list`
+
+Sin filtros por ahora: devuelve toda la cola de descargas.
+
+**Input:**
+
+  (sin campos)
+
+**Output:**
+
+La cola completa. El renderer hace polling de este canal para ver el progreso.
+
+  - `downloads: array` — Todas las descargas conocidas.
+
+### `downloads.pause`
+
+Pausa una descarga en curso.
+
+**Input:**
+
+  - `id: string` — Id de la descarga a pausar.
+
+**Output:**
+
+La descarga quedó pausada.
+
+  (sin campos)
+
 ## Namespace `library.*`
 
 ### `library.launch`

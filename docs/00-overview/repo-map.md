@@ -13,7 +13,7 @@ abre un issue para corregir este archivo.
 
 | Carpeta | Qué es | Estado |
 |---|---|---|
-| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 2: feature Biblioteca completa (main + renderer). Fase 3 completa: feature Steam. Fase 4 en construcción: motor de descargas (ADR-0004). |
+| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 2: feature Biblioteca completa (main + renderer). Fase 3 completa: feature Steam. Fase 4: motor de descargas completo en main (ADR-0004), falta el renderer. |
 | `apps/web-landing` | Landing estática "próximamente", en Astro. Se despliega en Cloudflare Pages. | Contenido inicial hecho — ver `docs/00-overview/repo-map.md#apps-web-landing`. |
 
 ### `apps/desktop`
@@ -24,7 +24,7 @@ apps/desktop/
 ├── src/
 │   ├── main/
 │   │   ├── index.ts             bootstrap, <150 líneas
-│   │   ├── bootstrap/           window.ts (webPreferences seguros), lifecycle.ts, steam-watcher.ts
+│   │   ├── bootstrap/           window.ts, lifecycle.ts, steam-watcher.ts, download-resumer.ts
 │   │   └── ipc/
 │   │       ├── router.ts        ÚNICO ipcMain.handle del repo (ADR-0002)
 │   │       ├── registry.ts      mapa canal → handler
@@ -47,12 +47,14 @@ apps/desktop/
 │   ├── service.ts                 orquesta library-scanner + LibraryRepository
 │   ├── handlers.ts                traduce dominio ↔ forma exacta del contrato IPC
 │   └── watcher.ts                 vigila steamapps/ y re-importa solo con debounce
-├── src/main/features/downloads/  Fase 4 (ADR-0004): motor de descargas, en construcción
+├── src/main/features/downloads/  Fase 4 (ADR-0004): motor de descargas, main completo
 │   ├── download-record.ts         DownloadState (core-domain) + metadatos fijos
 │   ├── repository.ts              tabla `downloads` ↔ DownloadRecord, índice único de dedupe
 │   ├── http-client.ts             fetch con Range/If-Range: reanudación real
 │   ├── verifier.ts                SHA-256 incremental, verificación final del archivo
-│   └── extractor.ts               ZIP con yauzl, protegido contra zip-slip
+│   ├── extractor.ts               ZIP con yauzl, protegido contra zip-slip
+│   ├── service.ts                 orquesta todo contra transition() + dedupe en memoria + token bucket
+│   └── handlers.ts                traduce dominio ↔ forma exacta del contrato IPC
 ├── src/main/platform/
 │   ├── process-launcher.ts        único lugar que hace spawn() real (lanzar juegos)
 │   └── steam-registry.ts          único lugar que lee el registro de Windows (Steam)
@@ -66,7 +68,7 @@ apps/desktop/
 ```
 
 Documentación de la feature Biblioteca en `docs/02-features/library/`, de la feature
-Steam en `docs/02-features/steam/`, de la feature Descargas (en construcción) en
+Steam en `docs/02-features/steam/`, de la feature Descargas en
 `docs/02-features/downloads/`.
 
 **better-sqlite3 y ABI nativa**: el binding compilado no puede ser el mismo para
@@ -110,7 +112,7 @@ Decisiones de estilo (a propósito distintas de cualquier referencia externa):
 | `packages/logger` | `createLogger(scope)` — el único logger de main/preload/renderer. Formato legible en dev, JSON en producción. | Implementado, con tests. |
 | `packages/tsconfig` | `tsconfig` base compartido por todo el monorepo. | Implementado. |
 | `packages/eslint-config` | ESLint 9 flat config compartida: límites de tamaño (B.2), boundaries (B.3), no-any y no-raw-ipc (B.1/B.6). | Implementado. |
-| `packages/ipc-contract` | El corazón (ADR-0002): mapa de canales IPC con Zod input/output, `.describe()` obligatorio verificado en runtime. | Implementado, con tests, cobertura 100%. Canales `app.ping`, `library.list`, `library.launch`, `steam.importLibrary`. |
+| `packages/ipc-contract` | El corazón (ADR-0002): mapa de canales IPC con Zod input/output, `.describe()` obligatorio verificado en runtime. | Implementado, con tests, cobertura 100%. Canales `app.ping`, `library.list`, `library.launch`, `steam.importLibrary`, `downloads.enqueue`/`list`/`pause`/`cancel`. |
 | `packages/core-domain` | `Game`, `Installation`, `resolveLaunchCommand`, y (Fase 4, ADR-0004) `transition`/`ALLOWED_TRANSITIONS`, `ProgressThrottle`, `TokenBucket` — tipos y reglas puras, cero Electron/`node:fs`. | Implementado, con tests, cobertura 100%. Usado por `main/features/library` y `main/features/downloads`. |
 | `packages/steam-kit` | Parsers puros de VDF/ACF: `parseVdf`, `parseLibraryFolders`, `parseAppManifest`, `parseLoginUsers`, `parseDepotKeys`. | Implementado (Fase 3), 40 tests, cobertura ~98%. Recibe contenido ya leído, cero Electron/`node:fs`. |
 

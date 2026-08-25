@@ -4,16 +4,18 @@ Fase 4 del roadmap (ADR-0004). El motor de descargas: un solo store de verdad pa
 la cola, con máquina de estados explícita, reanudación tras matar el proceso, y cero
 descargas duplicadas concurrentes.
 
-## Qué hace (cuando esté completa)
+## Qué hace
 
 - Descarga un archivo desde una URL HTTP(S) que le llega como dato (no resuelve
   catálogos ni sabe de Steam — ver ADR-0004, sección "De dónde vienen los archivos").
 - Reanuda una descarga interrumpida por `kill -9` del proceso, retomando desde el byte
-  que ya estaba en disco.
+  que ya estaba en disco (`resumeInterrupted()`, llamado una vez en el bootstrap).
 - Verifica la integridad del archivo (SHA-256) antes de extraerlo.
 - Extrae ZIP de forma segura (protegido contra zip-slip) al directorio de instalación.
-- Emite progreso al renderer con throttle (~4 eventos/s), nunca perdiendo el último
-  evento antes de una transición de estado.
+- Limita el ancho de banda si se configura un `maxBytesPerSecond` (por defecto, sin
+  límite — no hay UI de Ajustes todavía que lo exponga).
+- El renderer lee el progreso haciendo **polling** de `downloads.list` (no hay eventos
+  push main→renderer en este repo todavía; ver [decisions.md](decisions.md)).
 
 ## Cómo encaja
 
@@ -29,8 +31,16 @@ apps/desktop/src/main/features/downloads/
   http-client.ts           abre la conexión HTTP con reanudación (Range/If-Range)
   verifier.ts              SHA-256 incremental + verificación final del archivo
   extractor.ts             extracción de ZIP con yauzl, protegida contra zip-slip
-  test-helpers.ts          openInMemoryDb + fakeMetadata para tests
+  service.ts               orquesta todo lo anterior contra transition() + dedupe en memoria
+  handlers.ts              traduce dominio <-> forma exacta del contrato IPC
+  index.ts                 API pública: DownloadRepository, DownloadService, createDownloadHandlers
+
+apps/desktop/src/main/bootstrap/download-resumer.ts
+  resumeInterruptedDownloads   llama a DownloadService.resumeInterrupted() en el arranque
 ```
+
+- `packages/ipc-contract` — canales `downloads.enqueue`, `downloads.list`,
+  `downloads.pause`, `downloads.cancel`, ver [ipc-channels.md](ipc-channels.md).
 
 Ver [data-model.md](data-model.md) para el esquema de la tabla `downloads` y el mapeo
 a `DownloadState`, [decisions.md](decisions.md) para decisiones locales que no
@@ -40,22 +50,12 @@ de SHA-512, por qué solo ZIP con `yauzl`, por qué el índice único parcial, e
 
 ## Estado
 
-**En construcción, tres de cinco capas de Fase 4 completas:**
+**Main completo** (núcleo puro + persistencia + I/O + orquestación + IPC), 112 tests,
+~94% de cobertura en la feature. Verificado end-to-end el criterio de HECHO más duro de
+la fase: una descarga interrumpida a mitad (fila `downloading` en la DB, archivo parcial
+en disco) se retoma desde el offset exacto persistido, pidiendo el `Range` HTTP correcto,
+y termina instalada.
 
-1. Núcleo puro en `core-domain` (`transition`, `ProgressThrottle`, `TokenBucket`) —
-   100% cobertura, 90 tests.
-2. Esquema Drizzle de `downloads` (con el índice único parcial que impide duplicados) y
-   `DownloadRepository` — 97% cobertura.
-3. I/O de bajo nivel: `http-client.ts` (Range/If-Range/reanudación, testeado contra un
-   servidor HTTP real que "miente" con 200 en vez de 206), `verifier.ts` (SHA-256
-   incremental), `extractor.ts` (ZIP con `yauzl`, protegido contra zip-slip y enlaces
-   simbólicos, extracción atómica vía staging + rename) — ~96% cobertura conjunta.
-
-**Todavía no existen**: `service.ts` (orquesta todo lo anterior contra `transition()`,
-el `Map<id, AbortController>` de la deduplicación en memoria, el token bucket de ancho de
-banda), `handlers.ts` + canal `downloads.*` en `packages/ipc-contract`, y el lado
-renderer completo (`renderer/features/downloads/`: store de UI, hooks de TanStack Query,
-componentes).
-
-Sin servicio ni handlers todavía, esta feature **no tiene ningún canal IPC ni UI
-funcional** — es infraestructura interna sin consumidor externo por ahora.
+**Todavía no existe**: el lado renderer (`renderer/features/downloads/`: store de UI,
+hooks de TanStack Query con polling, componentes de la cola). Sin renderer, el canal
+`downloads.*` es invocable pero no tiene ninguna UI que lo use todavía.

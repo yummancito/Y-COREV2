@@ -14,6 +14,7 @@ import { attachLifecycleHandlers, enforceSingleInstance } from './bootstrap/life
 import { openAppDatabase } from './bootstrap/database.js';
 import { createMainWindow } from './bootstrap/window.js';
 import { startSteamWatcher } from './bootstrap/steam-watcher.js';
+import { resumeInterruptedDownloads } from './bootstrap/download-resumer.js';
 import { buildRegistry } from './ipc/registry.js';
 import { registerIpcRouter } from './ipc/router.js';
 
@@ -45,6 +46,7 @@ if (!enforceSingleInstance(showOrCreateMainWindow)) {
 
     registerIpcRouter(buildRegistry(db));
     void startSteamWatcher(db);
+    resumeInterruptedDownloads(db);
     mainWindow = createMainWindow();
     attachLifecycleHandlers(() => (mainWindow = createMainWindow()));
 

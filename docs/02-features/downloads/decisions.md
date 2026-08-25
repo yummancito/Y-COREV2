@@ -27,9 +27,9 @@ chequeo a esta tabla, por si en el futuro hay otro índice único en el mismo pr
 `DownloadRepository.save(state, updatedAt)` escribe cualquier `DownloadState` que reciba,
 sin comprobar que la transición desde el estado anterior sea legal — esa validación es
 responsabilidad exclusiva de `transition()` en `core-domain` (ADR-0004, punto 2), y
-`service.ts` (todavía no escrito) es quien debe llamar a `transition()` antes de pasarle
-el resultado a `save()`. Repetir la validación en el repositorio sería una segunda fuente
-de verdad sobre qué transiciones son legales.
+`DownloadService` es quien llama a `transition()` antes de pasarle el resultado a
+`save()`. Repetir la validación en el repositorio sería una segunda fuente de verdad
+sobre qué transiciones son legales.
 
 ## La protección zip-slip de `extractor.ts` es redundante con `yauzl`, y es intencional
 
@@ -51,3 +51,35 @@ leer, pero en el lado de escritura. Para poder testear que `extractZip` rechaza 
 entrada maliciosa hace falta un ZIP que contenga esa entrada, así que
 `extractor.test-helpers.ts` arma los bytes del formato ZIP a mano (`buildMaliciousZip`),
 sin pasar por ninguna librería que valide el nombre.
+
+## Polling de `downloads.list` en vez de eventos push main→renderer
+
+Este repo no tiene todavía ningún patrón main→renderer (solo invoke/handle,
+request-response, ADR-0002) — definir uno seguro (allowlist de eventos, mismo espíritu
+que el contrato de canales) es una decisión de arquitectura aparte que no se abrió en
+esta fase. El renderer (cuando se escriba) leerá el progreso haciendo polling de
+`downloads.list` con TanStack Query (`refetchInterval` mientras haya una descarga
+activa) — reutiliza el patrón invoke/handle que ya existe, a costa de una latencia de
+hasta un intervalo de polling en vez de progreso instantáneo. Si en el futuro hace falta
+progreso más fino, eso es un ADR nuevo sobre eventos main→renderer, no una ampliación de
+este contrato.
+
+## `resumeInterrupted()` no valida `state.status !== 'downloading' -> downloading`
+
+Cuando `resumeInterrupted()` retoma una fila que ya estaba en `downloading` (el proceso
+murió a mitad, nadie llamó a `pause()`), `DownloadService.download()` no pasa por
+`transition()` para persistir el nuevo `bytesDownloaded`/`bytesTotal`: llama a
+`repository.save()` directo. `downloading -> downloading` no está en
+`ALLOWED_TRANSITIONS` (ADR-0004, punto 2) a propósito — un estado no transiciona a sí
+mismo — así que ese camino tendría que fallar con `download.invalid-transition` si
+pasara por `transition()`. Ver `aprendizaje.md` para el bug real que produjo esta
+decisión.
+
+## El `TokenBucket` es un límite global por instancia de `DownloadService`, no persistido
+
+`DownloadService` recibe un `maxBytesPerSecond` opcional en su constructor (no en
+`EnqueueInput` ni en la tabla `downloads`): es un límite de ancho de banda para todas
+las descargas de esa instancia del servicio, no configurable por descarga individual.
+No hay UI de Ajustes todavía que lo exponga — `registry.ts` y `download-resumer.ts`
+instancian el servicio sin límite. Cuando exista esa UI, este constructor ya admite el
+valor; no hace falta ningún cambio de esquema.

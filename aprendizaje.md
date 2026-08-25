@@ -517,3 +517,122 @@ types` explícitamente debe incluir `"node"` en la lista si el código corre baj
 `Buffer`, `process`, etc., aunque esos ya funcionaban por importarse indirectamente) caen
 en `any` sin ningún error obvio hasta que se usa una API que TypeScript no puede resolver
 de ningún otro lado.
+
+## 2026-08-25 — `resumeInterrupted()` intentaba la transición imposible `downloading -> downloading`
+
+**Contexto:** al escribir `DownloadService.resumeInterrupted()` (`main/features/downloads/
+service.ts`, Fase 4), el gancho de bootstrap que retoma una descarga que quedó a mitad
+tras un `kill -9` — la fila sigue en `downloading` en la DB porque nadie llamó a
+`pause()` antes de morir.
+
+**Error:** al reanudar, `download()` siempre llamaba `moveTo(state, { status:
+'downloading', ... })` para persistir el nuevo `bytesDownloaded`/`bytesTotal` recién
+abiertos. Cuando `state.status` ya era `'downloading'` (el caso de
+`resumeInterrupted()`, a diferencia de una reanudación desde `paused`),
+`transition()` rechazaba la transición `downloading -> downloading` con
+`download.invalid-transition` — correctamente, según `ALLOWED_TRANSITIONS`
+(ADR-0004, punto 2): no tiene sentido que un estado transicione a sí mismo.
+
+**Causa:** la función `download()` no distinguía "vengo de `paused`" de "vengo de
+`downloading` porque el proceso murió a mitad" — en ambos casos hay que calcular el
+offset de reanudación igual, pero solo el primero es una transición real de estado.
+
+**Solución:** si `state.status` ya es `'downloading'`, se persiste el nuevo
+`bytesDownloaded`/`bytesTotal` con `repository.save()` directo (sin pasar por
+`transition()`, porque no hay cambio de estado, solo de datos dentro del mismo
+estado); si no, sigue pasando por `moveTo()`/`transition()` como siempre.
+
+**Cómo evitarlo:** al diseñar cualquier operación que "reanuda" algo, comprobar
+explícitamente contra la tabla de transiciones si el estado de origen puede ser igual
+al de destino — una máquina de estados que solo permite transiciones estrictas (nunca
+`X -> X`) necesita un camino aparte para "seguir en el mismo estado con datos
+actualizados", y ese camino no es un bug, es una decisión de diseño que hay que hacer
+explícita en el código (con su comentario), no un caso que se cuela sin querer.
+
+## 2026-08-25 — Los tests de un servicio con trabajo fire-and-forget dejaban "unhandled rejection"
+
+**Contexto:** al testear `DownloadService`, cuyo `enqueue()` dispara `run()` (el ciclo
+completo de descarga) sin esperarlo (`void this.run(id)` — el IPC debe responder en
+cuanto la fila queda `queued`, no cuando termina de descargar).
+
+**Error:** `vitest` reportaba un "Unhandled Rejection" — `TypeError: The database
+connection is not open` — en un test que ni siquiera esperaba a que terminara: el test
+llamaba `service.enqueue()` dos veces (para probar `download.duplicate`) y terminaba
+inmediatamente sin esperar nada más. El `afterEach` cerraba la DB y el servidor HTTP de
+prueba justo después. La primera descarga (con un hash inventado, solo para ocupar el
+slot del `appId`) seguía corriendo en segundo plano, y al intentar `fetch` o
+`repository.save()` contra recursos ya cerrados, lanzaba.
+
+**Causa:** cualquier test que llama a un método fire-and-forget dispara trabajo
+asíncrono que sigue vivo después de que el `it` termine, salvo que el test
+explícitamente espere a que ese trabajo llegue a un estado terminal. El test pasaba
+igual (la aserción que importaba ya se había cumplido), pero el trabajo de fondo
+seguía corriendo hacia una DB que el siguiente `afterEach` cerraba a mitad.
+
+**Solución:** todo test que llama a `enqueue()` (incluso si lo que testea es otra cosa,
+como el rechazo por duplicado) añade un `vi.waitFor()` esperando a que la descarga real
+llegue a un estado terminal (`done` o `failed`) antes de terminar el `it`, para que no
+quede ningún trabajo async pendiente cuando `afterEach` cierra la DB y el servidor.
+
+**Cómo evitarlo:** al testear cualquier método fire-and-forget (`void algo()`), el test
+tiene que esperar explícitamente a que ese trabajo termine (con polling del estado
+observable, aquí `service.list()`) antes de devolver el control — nunca asumir que
+porque la aserción principal ya pasó, no queda nada corriendo de fondo.
+
+## 2026-08-25 — El test del límite de ancho de banda no frenaba nada, por contenido demasiado compresible
+
+**Contexto:** al testear que `DownloadService` aplica de verdad el `TokenBucket`
+(ADR-0004, punto 1) al escribir el archivo descargado — un test que arma un ZIP con un
+`appmanifest`/contenido de prueba y espera que, con un límite bajo de bytes/segundo, la
+descarga tarde perceptiblemente más.
+
+**Error:** el test pasaba "demasiado rápido" (67 ms) con un límite de 500 B/s sobre un
+archivo de 2000 bytes — matemáticamente debería haber tardado varios segundos.
+
+**Causa:** el contenido de prueba era `'x'.repeat(2000)` — 2000 bytes idénticos. DEFLATE
+(el algoritmo que usa el formato ZIP) comprime eso a ~17 bytes reales. El "archivo de
+2000 bytes" nunca existió en la red: lo que viajaba por el `TokenBucket` cabía entero
+dentro del burst inicial (el bucket arranca lleno, `tokens = bytesPerSecond`), así que
+nunca llegó a frenar nada — el test medía la velocidad de un archivo casi vacío, no la
+del escenario que quería probar.
+
+**Solución:** se generó el contenido de prueba con `randomBytes(2000)` (incompresible
+por definición) en vez de un string repetido, para que el tamaño real transmitido
+coincidiera con el tamaño nominal del test.
+
+**Cómo evitarlo:** cualquier test que mida throughput, tiempo de transferencia, o
+tamaño de payload contra un formato con compresión (ZIP, gzip, brotli...) debe usar
+contenido de prueba **incompresible** (aleatorio), nunca un string repetido o un patrón
+simple — de lo contrario el tamaño "nominal" del fixture y el tamaño real que viaja por
+la red pueden diferir en órdenes de magnitud, y el test mide algo distinto de lo que
+cree medir.
+
+## 2026-08-25 — El test del límite de ancho de banda pasaba aislado y fallaba dentro de `pnpm check:all`
+
+**Contexto:** el mismo test de `TokenBucket` real (arriba) pasaba siempre ejecutado
+solo (`npx vitest run service-bandwidth.test.ts`), pero fallaba de forma intermitente
+al correr `pnpm check:all` completo (~112 tests de `apps/desktop` corriendo en la misma
+tanda).
+
+**Error:** el `vi.waitFor(..., { timeout: 10000 })` que esperaba a que la descarga
+limitada a 500 B/s llegara a `done` expiraba y el estado real seguía en `downloading`
+o pasaba a `failed` por el signal de aborto de otro test — el proceso, bajo la carga de
+correr toda la suite (48 archivos, DB real, servidores HTTP reales, timers reales del
+`TokenBucket`), tardaba más en programar los `setTimeout` del throttling que en
+aislado.
+
+**Causa:** un timeout de test calculado para el caso aislado no deja margen para la
+contención de CPU/event-loop cuando corre junto a decenas de otros tests con I/O real
+(sockets, disco, timers). El test en sí era correcto — medía lo que debía medir — pero
+el presupuesto de tiempo era demasiado ajustado para el entorno real de CI/`check:all`.
+
+**Solución:** se subió el timeout de `vi.waitFor` a 30 s y el timeout del `it` a 35 s
+(muy por encima de lo que tarda en aislado), y se redujo el tamaño del contenido de
+prueba de 2000 a 1500 bytes aleatorios — el margen que importa es la aserción de tiempo
+mínimo (`> 1000 ms`), no cuánto tarda el `waitFor` en sí.
+
+**Cómo evitarlo:** cualquier test que dependa de timers reales (rate-limiting, retries
+con backoff, debounce) debe dimensionar sus timeouts pensando en "toda la suite
+corriendo junta bajo carga", no en "este archivo solo" — y siempre correr `pnpm
+check:all` completo al menos una vez antes de dar por cerrada una pieza que toque
+timers reales, no solo el archivo de test aislado.
