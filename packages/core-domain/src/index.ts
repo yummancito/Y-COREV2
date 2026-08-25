@@ -16,3 +16,22 @@ export {
 } from './game.js';
 
 export { resolveLaunchCommand, type LaunchCommand, type LaunchOptions } from './launch.js';
+
+export {
+  transition,
+  ALLOWED_TRANSITIONS,
+  type DownloadState,
+  type DownloadStatus,
+  type QueuedState,
+  type DownloadingState,
+  type PausedState,
+  type VerifyingState,
+  type ExtractingState,
+  type InstallingState,
+  type DoneState,
+  type FailedState,
+} from './download-state.js';
+
+export { ProgressThrottle, type ProgressSample } from './progress-throttle.js';
+
+export { TokenBucket } from './token-bucket.js';

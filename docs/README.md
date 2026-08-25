@@ -65,6 +65,7 @@ Una carpeta por feature en [`02-features/`](02-features/). Cada una con `README.
 | [0001](adr/0001-monorepo-pnpm-turborepo.md) | Monorepo pnpm + Turborepo con fronteras verificadas | Aceptado |
 | [0002](adr/0002-contrato-ipc-unico.md) | Contrato IPC tipado único | Aceptado |
 | [0003](adr/0003-abandonar-electron-updater.md) | Cliente de actualizaciones propio | Aceptado |
+| [0004](adr/0004-motor-de-descargas.md) | Motor de descargas único, máquina de estados pura | Aceptado |
 
 Plantilla: [`adr/0000-template.md`](adr/0000-template.md).
 Un ADR aceptado es **inmutable**: para cambiarlo se escribe uno nuevo que lo reemplaza.

@@ -28,6 +28,14 @@ export type AppErrorCode =
   | 'permission-denied'
   /** Fallo de E/S en disco. */
   | 'io.failed'
+  /** Se intentó una transición de estado que no está en la tabla de transiciones legales. */
+  | 'download.invalid-transition'
+  /** El hash del archivo descargado no coincide con el esperado. */
+  | 'download.integrity-mismatch'
+  /** Ya existe una descarga activa para el mismo appId (constraint de la DB). */
+  | 'download.duplicate'
+  /** El ZIP a extraer tiene una entrada que se sale de install_path (path traversal). */
+  | 'download.zip-slip'
   /** Error sin clasificar: siempre es un bug que hay que clasificar. */
   | 'unknown';
 
