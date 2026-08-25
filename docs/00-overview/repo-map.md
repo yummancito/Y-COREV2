@@ -13,7 +13,7 @@ abre un issue para corregir este archivo.
 
 | Carpeta | Qué es | Estado |
 |---|---|---|
-| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 2: feature Biblioteca completa (main + renderer). |
+| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 2: feature Biblioteca completa (main + renderer). Fase 3 parcial: feature Steam (detección + escaneo + importación). |
 | `apps/web-landing` | Landing estática "próximamente", en Astro. Se despliega en Cloudflare Pages. | Contenido inicial hecho — ver `docs/00-overview/repo-map.md#apps-web-landing`. |
 
 ### `apps/desktop`
@@ -42,8 +42,13 @@ apps/desktop/
 │   ├── repository.ts              tabla `games` ↔ Game/Installation de core-domain
 │   ├── service.ts                 orquesta repository + core-domain + platform
 │   └── handlers.ts                traduce dominio ↔ forma exacta del contrato IPC
+├── src/main/features/steam/      Fase 3: importar biblioteca real de Steam
+│   ├── library-scanner.ts         lee steamapps/appmanifest_*.acf, arma Game[]
+│   ├── service.ts                 orquesta library-scanner + LibraryRepository
+│   └── handlers.ts                traduce dominio ↔ forma exacta del contrato IPC
 ├── src/main/platform/
-│   └── process-launcher.ts        único lugar que hace spawn() real (lanzar juegos)
+│   ├── process-launcher.ts        único lugar que hace spawn() real (lanzar juegos)
+│   └── steam-registry.ts          único lugar que lee el registro de Windows (Steam)
 ├── src/renderer/features/library/    lado renderer del molde canónico
 │   ├── hooks/                          useLibraryQuery, useLaunchGame (TanStack Query)
 │   └── components/                     GameCard, LibraryGrid
@@ -53,7 +58,8 @@ apps/desktop/
 └── drizzle.config.ts
 ```
 
-Documentación de la feature Biblioteca en `docs/02-features/library/`.
+Documentación de la feature Biblioteca en `docs/02-features/library/`, de la feature
+Steam en `docs/02-features/steam/`.
 
 **better-sqlite3 y ABI nativa**: el binding compilado no puede ser el mismo para
 `pnpm test` (corre bajo Node) y `pnpm dev`/`pnpm build` (corren bajo Electron, ABI
@@ -96,7 +102,7 @@ Decisiones de estilo (a propósito distintas de cualquier referencia externa):
 | `packages/logger` | `createLogger(scope)` — el único logger de main/preload/renderer. Formato legible en dev, JSON en producción. | Implementado, con tests. |
 | `packages/tsconfig` | `tsconfig` base compartido por todo el monorepo. | Implementado. |
 | `packages/eslint-config` | ESLint 9 flat config compartida: límites de tamaño (B.2), boundaries (B.3), no-any y no-raw-ipc (B.1/B.6). | Implementado. |
-| `packages/ipc-contract` | El corazón (ADR-0002): mapa de canales IPC con Zod input/output, `.describe()` obligatorio verificado en runtime. | Implementado, con tests, cobertura 100%. Canales `app.ping`, `library.list`, `library.launch`. |
+| `packages/ipc-contract` | El corazón (ADR-0002): mapa de canales IPC con Zod input/output, `.describe()` obligatorio verificado en runtime. | Implementado, con tests, cobertura 100%. Canales `app.ping`, `library.list`, `library.launch`, `steam.importLibrary`. |
 | `packages/core-domain` | `Game`, `Installation`, `resolveLaunchCommand` — tipos y reglas puras, cero Electron/`node:fs`. | Implementado, con tests, cobertura 100%. Usado por `main/features/library`. |
 | `packages/steam-kit` | Parsers puros de VDF/ACF: `parseVdf`, `parseLibraryFolders`, `parseAppManifest`, `parseLoginUsers`, `parseDepotKeys`. | Implementado (Fase 3), 40 tests, cobertura ~98%. Recibe contenido ya leído, cero Electron/`node:fs`. |
 

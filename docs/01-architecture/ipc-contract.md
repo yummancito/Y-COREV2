@@ -54,3 +54,19 @@ La biblioteca completa.
 
   - `games: array` — Todos los juegos conocidos.
 
+## Namespace `steam.*`
+
+### `steam.importLibrary`
+
+Sin parámetros: escanea la instalación de Steam de esta máquina.
+
+**Input:**
+
+  (sin campos)
+
+**Output:**
+
+Resultado del escaneo. Los datos ya quedaron guardados; usa library.list para leerlos.
+
+  - `gamesFound: integer` — Cuántos juegos se encontraron instalados.
+

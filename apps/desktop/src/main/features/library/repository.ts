@@ -31,6 +31,18 @@ function rowToGame(row: GameRow): Game {
   return { appId: row.appId, name: row.name, installation };
 }
 
+/** Convierte un `Game` de dominio a las columnas planas que espera la tabla `games`. */
+function gameToRow(game: Game): typeof games.$inferInsert {
+  return {
+    appId: game.appId,
+    name: game.name,
+    installationPath: game.installation?.path ?? null,
+    executablePath: game.installation?.executablePath ?? null,
+    sizeOnDiskBytes: game.installation?.sizeOnDiskBytes ?? null,
+    lastPlayedAt: game.installation?.lastPlayedAt ?? null,
+  };
+}
+
 export class LibraryRepository {
   constructor(private readonly db: YCoreDatabase) {}
 
@@ -47,5 +59,25 @@ export class LibraryRepository {
     const row = this.db.select().from(games).where(eq(games.appId, appId)).get();
     if (row === undefined) return err(appError('not-found', { context: { appId } }));
     return ok(rowToGame(row));
+  }
+
+  /**
+   * Inserta o actualiza varios juegos de una vez — el caso de uso de
+   * `scanSteamLibrary` (`main/features/steam`): un juego que ya existía en
+   * la tabla (mismo `appId`) se actualiza con los datos frescos del disco;
+   * uno nuevo se inserta. No borra juegos que ya no aparecen en el escaneo
+   * (un juego desinstalado sigue siendo parte del catálogo conocido, solo
+   * que con `installation: null` — eso lo decide quien llama, no este método).
+   */
+  upsertMany(gamesToUpsert: readonly Game[]): void {
+    if (gamesToUpsert.length === 0) return;
+
+    for (const game of gamesToUpsert) {
+      this.db
+        .insert(games)
+        .values(gameToRow(game))
+        .onConflictDoUpdate({ target: games.appId, set: gameToRow(game) })
+        .run();
+    }
   }
 }

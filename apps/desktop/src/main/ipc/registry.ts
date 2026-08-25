@@ -17,6 +17,7 @@ import type { AppError } from '@ycore/result/app-error';
 import { contract, type ChannelInput, type ChannelName, type ChannelOutput } from '@ycore/ipc-contract';
 import type { YCoreDatabase } from '../db/index.js';
 import { createLibraryHandlers, LibraryRepository, LibraryService } from '../features/library/index.js';
+import { createSteamHandlers, SteamService } from '../features/steam/index.js';
 
 /**
  * Firma de un handler para el canal `C`: recibe input ya validado, nunca lanza.
@@ -43,11 +44,14 @@ function handleAppPing(): Promise<Result<{ pong: true; receivedAt: string }, App
  * @param db - Conexión de Drizzle ya migrada, para los repositorios de features.
  */
 export function buildRegistry(db: YCoreDatabase): Registry {
-  const library = createLibraryHandlers(new LibraryService(new LibraryRepository(db)));
+  const libraryRepository = new LibraryRepository(db);
+  const library = createLibraryHandlers(new LibraryService(libraryRepository));
+  const steam = createSteamHandlers(new SteamService(libraryRepository));
 
   return {
     'app.ping': handleAppPing,
     'library.list': library.listGames,
     'library.launch': library.launchGame,
+    'steam.importLibrary': steam.importLibrary,
   };
 }

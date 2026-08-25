@@ -24,6 +24,7 @@
     "@ycore/ipc-contract": "workspace:*",
     "@ycore/logger": "workspace:*",
     "@ycore/result": "workspace:*",
+    "@ycore/steam-kit": "workspace:*",
     "better-sqlite3": "^13.0.3",
     "drizzle-orm": "^0.45.2",
     "zod": "^4.4.3"
