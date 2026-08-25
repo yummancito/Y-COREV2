@@ -11,6 +11,7 @@ import { app, BrowserWindow } from 'electron';
 import { electronApp, optimizer } from '@electron-toolkit/utils';
 import { createLogger } from '@ycore/logger';
 import { attachLifecycleHandlers, enforceSingleInstance } from './bootstrap/lifecycle.js';
+import { openAppDatabase } from './bootstrap/database.js';
 import { createMainWindow } from './bootstrap/window.js';
 import { registerIpcRouter } from './ipc/router.js';
 
@@ -36,6 +37,9 @@ if (!enforceSingleInstance(showOrCreateMainWindow)) {
     app.on('browser-window-created', (_event, window) => {
       optimizer.watchWindowShortcuts(window);
     });
+
+    const db = openAppDatabase();
+    app.on('will-quit', () => db.$client.close());
 
     registerIpcRouter();
     mainWindow = createMainWindow();

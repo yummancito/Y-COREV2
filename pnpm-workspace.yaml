@@ -5,6 +5,7 @@ packages:
   - 'services/*'
   - 'tools/cli'
 allowBuilds:
+  better-sqlite3: true
   electron: true
   esbuild: true
   sharp: true

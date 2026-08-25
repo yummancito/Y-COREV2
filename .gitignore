@@ -33,6 +33,12 @@ coverage/
 playwright-report/
 test-results/
 
+# Base de datos local (vive de verdad en userData de Electron, no en el repo)
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite.bak
+
 # Editores y SO
 .vscode/*
 !.vscode/extensions.json

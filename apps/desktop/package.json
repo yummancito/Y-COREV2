@@ -13,22 +13,27 @@
     "lint": "eslint src",
     "test": "vitest run --coverage",
     "check:contract": "tsx src/main/ipc/check-contract.ts",
-    "docs:ipc": "tsx src/main/ipc/generate-docs.ts"
+    "docs:ipc": "tsx src/main/ipc/generate-docs.ts",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
     "@ycore/ipc-contract": "workspace:*",
     "@ycore/logger": "workspace:*",
     "@ycore/result": "workspace:*",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.45.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.7.0",
     "@vitest/coverage-v8": "^4.1.10",
     "@ycore/eslint-config": "workspace:*",
     "@ycore/tsconfig": "workspace:*",
+    "drizzle-kit": "^0.31.10",
     "electron": "^33.4.11",
     "electron-vite": "^5.0.0",
     "eslint": "^9.20.0",

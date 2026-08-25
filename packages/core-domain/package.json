@@ -1,0 +1,25 @@
+{
+  "name": "@ycore/core-domain",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@ycore/result": "workspace:*"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.10",
+    "@ycore/eslint-config": "workspace:*",
+    "@ycore/tsconfig": "workspace:*",
+    "eslint": "^9.20.0",
+    "vitest": "^4.1.10"
+  }
+}

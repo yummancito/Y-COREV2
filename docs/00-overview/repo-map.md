@@ -34,10 +34,16 @@ apps/desktop/
 │   │   ├── index.ts             expone window.ycore, sin invoke() genérico
 │   │   └── build-bridge.ts       arma el árbol {namespace: {verbo: fn}} desde el contrato
 │   └── renderer/                React 19 mínimo, prueba window.ycore.app.ping()
+├── src/main/db/
+│   ├── schema.ts                 esquema Drizzle (única fuente de verdad, migra desde aquí)
+│   ├── client.ts                 openDatabase(): abre, respalda (.bak) y migra
+│   └── migrations/                generadas con `pnpm db:generate`, nunca a mano
+└── drizzle.config.ts
 ```
 
 Sin `main/features/*` ni `renderer/features/*` todavía — la primera feature vertical
-(biblioteca) es Fase 2.
+(biblioteca) es Fase 2. La tabla `games` de `main/db/schema.ts` existe pero ningún
+repositorio la usa todavía.
 
 ### `apps/web-landing`
 
@@ -74,8 +80,9 @@ Decisiones de estilo (a propósito distintas de cualquier referencia externa):
 | `packages/tsconfig` | `tsconfig` base compartido por todo el monorepo. | Implementado. |
 | `packages/eslint-config` | ESLint 9 flat config compartida: límites de tamaño (B.2), boundaries (B.3), no-any y no-raw-ipc (B.1/B.6). | Implementado. |
 | `packages/ipc-contract` | El corazón (ADR-0002): mapa de canales IPC con Zod input/output, `.describe()` obligatorio verificado en runtime. | Implementado, con tests, cobertura 100%. Solo el canal de referencia `app.ping`. |
+| `packages/core-domain` | `Game`, `Installation`, `resolveLaunchCommand` — tipos y reglas puras, cero Electron/`node:fs`. | Implementado, con tests, cobertura 100%. Todavía no lo usa ningún repositorio de `apps/desktop`. |
 
-Las demás carpetas de `packages/` que aparecen en el roadmap (`core-domain`, `steam-kit`,
+Las demás carpetas de `packages/` que aparecen en el roadmap (`steam-kit`,
 `updater-client`, `ui-kit`, `i18n`) todavía no existen — se crean en las fases
 correspondientes (ver `docs/00-overview/roadmap.md`).
 

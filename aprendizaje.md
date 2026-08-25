@@ -145,3 +145,55 @@ no como un `rules` fusionado.
 hay UN lugar donde X es correcto necesita su excepción declarada desde el primer commit de
 la regla, no como parche posterior — probarla contra el propio caso permitido (aquí:
 escribir el router real) habría detectado esto antes de que hubiera código que lo disparara.
+
+---
+
+## 2026-08-25 — commitlint rechaza "Fase 1" en el subject por sentence-case
+
+**Contexto:** al commitear el cierre de la Fase 1, con subject
+`feat(desktop): Fase 1 -- contrato IPC, router unico, preload sin invoke generico`.
+
+**Error:** el hook `commit-msg` rechazó el commit con `subject must not be sentence-case,
+start-case, pascal-case, upper-case [subject-case]`.
+
+**Causa:** `@commitlint/config-conventional` exige `subject-case` en minúsculas
+(`lower-case`); "Fase 1" con F mayúscula bastó para que lo detectara como sentence-case.
+
+**Solución:** cambiar a `fase 1` en minúsculas dentro del subject. La regla es correcta y
+no se toca — mantiene los mensajes de commit consistentes en el historial.
+
+**Cómo evitarlo:** en Conventional Commits, el subject (después de `tipo(scope): `) va
+siempre en minúsculas, incluidas palabras que normalmente se capitalizarían como nombres
+propios del proyecto ("Fase 1", "ADR-0002"); esas van bien en el cuerpo del mensaje, no en
+el subject.
+
+---
+
+## 2026-08-25 — `vite-plugin-static-copy` no copiaba archivos con electron-vite + Vite 7
+
+**Contexto:** al conectar `main/db/migrations` (archivos `.sql`/`.json` generados por
+drizzle-kit) al build de producción de `apps/desktop`, para que
+`main/bootstrap/database.ts` los encuentre en `out/main/db/migrations` y no solo en
+`src/` (que en producción no existe).
+
+**Error:** `vite-plugin-static-copy@4.1.1` se registraba correctamente en la config de
+`electron-vite` (confirmado con `DEBUG=vite:*`: el plugin aparece en la lista con su hook
+`writeBundle` presente), pero después de `pnpm build` la carpeta `out/main/db/` no
+contenía nada — ni con ruta relativa (`'src/main/db/migrations'`) ni con ruta absoluta
+(`resolve(__dirname, ...)`).
+
+**Causa:** no confirmada con certeza (el plugin no da ningún error ni log), pero el
+patrón encaja con un problema conocido de plugins que dependen de `writeBundle` cuando
+electron-vite construye el proceso main como un "SSR environment" de Vite 7 — el hook
+puede no dispararse en ese modo para todos los plugins de terceros.
+
+**Solución:** se abandonó `vite-plugin-static-copy` y se reemplazó por un plugin propio de
+una función (`copyMigrationsPlugin` en `electron.vite.config.ts`) que usa `cpSync` de
+`node:fs` directamente en su propio hook `closeBundle`. Verificado con un build real:
+`out/main/db/migrations/0000_tricky_gambit.sql` y `meta/*.json` aparecen correctamente.
+
+**Cómo evitarlo:** para algo tan simple como "copiar una carpeta después del build", un
+plugin de una función propia con `cpSync` es más fiable y más fácil de depurar que una
+dependencia externa cuyo comportamiento con el modo SSR environments de Vite 7 no está
+verificado. Reservar plugins de terceros para necesidades más complejas (glob patterns,
+watch mode en dev, etc.) que sí justifiquen la dependencia.
