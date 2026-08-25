@@ -13,7 +13,7 @@ abre un issue para corregir este archivo.
 
 | Carpeta | Qué es | Estado |
 |---|---|---|
-| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 2: feature Biblioteca completa (main + renderer). Fase 3 completa: feature Steam (detección + escaneo + importación + watcher automático). |
+| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 2: feature Biblioteca completa (main + renderer). Fase 3 completa: feature Steam. Fase 4 en construcción: motor de descargas (ADR-0004). |
 | `apps/web-landing` | Landing estática "próximamente", en Astro. Se despliega en Cloudflare Pages. | Contenido inicial hecho — ver `docs/00-overview/repo-map.md#apps-web-landing`. |
 
 ### `apps/desktop`
@@ -47,6 +47,9 @@ apps/desktop/
 │   ├── service.ts                 orquesta library-scanner + LibraryRepository
 │   ├── handlers.ts                traduce dominio ↔ forma exacta del contrato IPC
 │   └── watcher.ts                 vigila steamapps/ y re-importa solo con debounce
+├── src/main/features/downloads/  Fase 4 (ADR-0004): motor de descargas, en construcción
+│   ├── download-record.ts         DownloadState (core-domain) + metadatos fijos
+│   └── repository.ts              tabla `downloads` ↔ DownloadRecord, índice único de dedupe
 ├── src/main/platform/
 │   ├── process-launcher.ts        único lugar que hace spawn() real (lanzar juegos)
 │   └── steam-registry.ts          único lugar que lee el registro de Windows (Steam)
@@ -60,7 +63,8 @@ apps/desktop/
 ```
 
 Documentación de la feature Biblioteca en `docs/02-features/library/`, de la feature
-Steam en `docs/02-features/steam/`.
+Steam en `docs/02-features/steam/`, de la feature Descargas (en construcción) en
+`docs/02-features/downloads/`.
 
 **better-sqlite3 y ABI nativa**: el binding compilado no puede ser el mismo para
 `pnpm test` (corre bajo Node) y `pnpm dev`/`pnpm build` (corren bajo Electron, ABI
@@ -104,7 +108,7 @@ Decisiones de estilo (a propósito distintas de cualquier referencia externa):
 | `packages/tsconfig` | `tsconfig` base compartido por todo el monorepo. | Implementado. |
 | `packages/eslint-config` | ESLint 9 flat config compartida: límites de tamaño (B.2), boundaries (B.3), no-any y no-raw-ipc (B.1/B.6). | Implementado. |
 | `packages/ipc-contract` | El corazón (ADR-0002): mapa de canales IPC con Zod input/output, `.describe()` obligatorio verificado en runtime. | Implementado, con tests, cobertura 100%. Canales `app.ping`, `library.list`, `library.launch`, `steam.importLibrary`. |
-| `packages/core-domain` | `Game`, `Installation`, `resolveLaunchCommand` — tipos y reglas puras, cero Electron/`node:fs`. | Implementado, con tests, cobertura 100%. Usado por `main/features/library`. |
+| `packages/core-domain` | `Game`, `Installation`, `resolveLaunchCommand`, y (Fase 4, ADR-0004) `transition`/`ALLOWED_TRANSITIONS`, `ProgressThrottle`, `TokenBucket` — tipos y reglas puras, cero Electron/`node:fs`. | Implementado, con tests, cobertura 100%. Usado por `main/features/library` y `main/features/downloads`. |
 | `packages/steam-kit` | Parsers puros de VDF/ACF: `parseVdf`, `parseLibraryFolders`, `parseAppManifest`, `parseLoginUsers`, `parseDepotKeys`. | Implementado (Fase 3), 40 tests, cobertura ~98%. Recibe contenido ya leído, cero Electron/`node:fs`. |
 
 Las demás carpetas de `packages/` que aparecen en el roadmap (`updater-client`, `ui-kit`,

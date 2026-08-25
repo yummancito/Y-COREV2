@@ -6,5 +6,5 @@
  * aunque el módulo interno se reorganice.
  */
 
-export { games } from './schema.js';
+export { games, downloads } from './schema.js';
 export { openDatabase, defaultDbPath, type YCoreDatabase } from './client.js';
