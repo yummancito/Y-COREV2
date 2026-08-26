@@ -636,3 +636,44 @@ con backoff, debounce) debe dimensionar sus timeouts pensando en "toda la suite
 corriendo junta bajo carga", no en "este archivo solo" — y siempre correr `pnpm
 check:all` completo al menos una vez antes de dar por cerrada una pieza que toque
 timers reales, no solo el archivo de test aislado.
+
+## 2026-08-26 — Medir tiempo de reloj real para verificar el `TokenBucket` seguía siendo frágil; y un `async function*` como sink de `pipeline()` colgaba
+
+**Contexto:** tras subir los timeouts del test de ancho de banda a 30-35 s (entrada
+anterior), `pnpm check:all` completo siguió fallando ese mismo test — y además empezó a
+fallar `service.test.ts` (el ciclo feliz sin límite), que nunca había fallado antes.
+
+**Error:** con la suite completa (56 archivos, 134 tests) corriendo junta, el test de
+ancho de banda tardaba más de 30 s en algo que en aislado tarda ~3 s, y el test del
+ciclo feliz (sin ningún límite de por medio) superaba el timeout **default de Vitest,
+5000 ms**, que no estaba configurado explícitamente en ningún lado.
+
+**Causa real, dos partes:** (1) el proyecto `main` de `vitest.config.ts` no tenía
+`testTimeout` configurado, así que cualquier test con I/O real (servidor HTTP, SQLite)
+dependía del default de 5 s — insuficiente bajo la contención de CPU de correr toda la
+suite junta, sin que hiciera falta ningún bug de producto. (2) Al reescribir el test de
+ancho de banda para no depender de tiempo de reloj (ver decisión de abajo), un primer
+intento usaba un `async function*` como último argumento de `pipeline()` para
+capturar los chunks emitidos; ese patrón colgaba indefinidamente (probado: 20 s de
+timeout, cero avance) — un problema real de backpressure entre el generator y el
+`Transform` anterior en la cadena, no relacionado con el `TokenBucket` en absoluto.
+
+**Solución:** se añadió `testTimeout: 20000` al proyecto `main` de `vitest.config.ts`
+(un valor generoso pensado para "toda la suite corriendo junta", no para el archivo
+aislado). Y el test de ancho de banda se reescribió para no medir tiempo de reloj en
+absoluto: en vez de correr el ciclo completo de `DownloadService` y comparar cuánto
+tarda, se exportó `createThrottledPassThrough` (antes privada de `service.ts`) y se
+testeó como un `Transform` puro, capturando sus chunks con el patrón estándar
+`transform.on('data', ...)` seguido de `await pipeline(source, transform)` — sin
+generator como sink. La aserción pasó de "tarda más de X ms" a "un chunk que supera el
+cupo del bucket sale dividido en más de un `push()`", que es determinista y no depende
+de reloj real ni de cuánta CPU haya libre.
+
+**Cómo evitarlo:** nunca verificar un límite de tasa/ancho de banda midiendo tiempo de
+reloj real en un test — bajo la carga de una suite completa el tiempo real es
+inherentemente no determinista. Verificar el *comportamiento* (cuántos tokens concede,
+en cuántos trozos se parte un chunk) contra la pieza aislada más pequeña que lo
+implementa, con reloj inyectado si aplica. Y al capturar el output de un stream de
+Node para aserciones, preferir `stream.on('data', ...)` + `pipeline(source, stream)`
+sobre un `async function*` como sink — el segundo puede interactuar mal con el
+backpressure de un `Transform` intermedio y colgar sin ningún mensaje de error útil.

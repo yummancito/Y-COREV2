@@ -13,7 +13,7 @@ abre un issue para corregir este archivo.
 
 | Carpeta | Qué es | Estado |
 |---|---|---|
-| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 2: feature Biblioteca completa (main + renderer). Fase 3 completa: feature Steam. Fase 4: motor de descargas completo en main (ADR-0004), falta el renderer. |
+| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 2: feature Biblioteca completa (main + renderer). Fase 3 completa: feature Steam. Fase 4 completa: motor de descargas (ADR-0004), main + renderer. |
 | `apps/web-landing` | Landing estática "próximamente", en Astro. Se despliega en Cloudflare Pages. | Contenido inicial hecho — ver `docs/00-overview/repo-map.md#apps-web-landing`. |
 
 ### `apps/desktop`
@@ -33,7 +33,7 @@ apps/desktop/
 │   ├── preload/
 │   │   ├── index.ts             expone window.ycore, sin invoke() genérico
 │   │   └── build-bridge.ts       arma el árbol {namespace: {verbo: fn}} desde el contrato
-│   └── renderer/                React 19 mínimo, prueba window.ycore.app.ping()
+│   └── renderer/                App.tsx monta LibraryGrid + DownloadsList (sin router aún)
 ├── src/main/db/
 │   ├── schema.ts                 esquema Drizzle (única fuente de verdad, migra desde aquí)
 │   ├── client.ts                 openDatabase(): abre, respalda (.bak) y migra
@@ -47,7 +47,7 @@ apps/desktop/
 │   ├── service.ts                 orquesta library-scanner + LibraryRepository
 │   ├── handlers.ts                traduce dominio ↔ forma exacta del contrato IPC
 │   └── watcher.ts                 vigila steamapps/ y re-importa solo con debounce
-├── src/main/features/downloads/  Fase 4 (ADR-0004): motor de descargas, main completo
+├── src/main/features/downloads/  Fase 4 (ADR-0004): motor de descargas, completo
 │   ├── download-record.ts         DownloadState (core-domain) + metadatos fijos
 │   ├── repository.ts              tabla `downloads` ↔ DownloadRecord, índice único de dedupe
 │   ├── http-client.ts             fetch con Range/If-Range: reanudación real
@@ -61,6 +61,10 @@ apps/desktop/
 ├── src/renderer/features/library/    lado renderer del molde canónico
 │   ├── hooks/                          useLibraryQuery, useLaunchGame (TanStack Query)
 │   └── components/                     GameCard, LibraryGrid
+├── src/renderer/features/downloads/  lado renderer del motor de descargas
+│   ├── hooks/                          useDownloadsQuery (polling), useEnqueueDownload,
+│   │                                    usePauseDownload, useCancelDownload
+│   └── components/                     DownloadsList, DownloadRow
 ├── tools/
 │   ├── rebuild-native-for-electron.mjs   recompila better-sqlite3 para la ABI de Electron
 │   └── rebuild-native-for-node.mjs       restaura el binding de Node (para los tests)

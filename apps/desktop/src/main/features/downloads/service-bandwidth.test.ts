@@ -1,64 +1,47 @@
-import { randomBytes } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { isOk } from '@ycore/result';
-import { DownloadRepository } from './repository.js';
-import { DownloadService } from './service.js';
-import { openInMemoryDb } from './test-helpers.js';
-import { serveZipFixture } from './service.test-helpers.js';
-import type { YCoreDatabase } from '../../db/index.js';
-import type { TestServer } from './http-client.test-helpers.js';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { describe, expect, it } from 'vitest';
+import { TokenBucket } from '@ycore/core-domain';
+import { createThrottledPassThrough } from './service.js';
 
-const TMP_TESTS_ROOT = join(process.cwd(), '.tmp-tests');
-// Contenido aleatorio a propósito: DEFLATE comprime texto repetitivo a casi
-// nada (2000 "x" pesan ~17 bytes comprimidos), lo que dejaría todo el ZIP
-// dentro del burst inicial del TokenBucket sin frenar nada de verdad.
-const RANDOM_CONTENT = randomBytes(1500).toString('base64');
+/**
+ * Testea el throttling de ancho de banda contra un `Transform` puro (sin
+ * `DownloadService`, sin servidor HTTP, sin DB): determinista y rápido.
+ * Medir esto a través del ciclo completo de una descarga real requeriría
+ * comparar tiempos de reloj bajo la carga variable de correr toda la suite
+ * junta, lo que resultó frágil (ver aprendizaje.md).
+ */
+async function collectOutput(bucket: TokenBucket, content: Buffer): Promise<Buffer[]> {
+  const chunks: Buffer[] = [];
+  const transform = createThrottledPassThrough(bucket);
+  transform.on('data', (chunk: Buffer) => chunks.push(chunk));
 
-describe('DownloadService — límite de ancho de banda', () => {
-  let db: YCoreDatabase;
-  let dir: string;
-  let server: TestServer;
+  await pipeline(Readable.from([content]), transform);
+  return chunks;
+}
 
-  beforeEach(async () => {
-    db = openInMemoryDb();
-    dir = mkdtempSync(join(TMP_TESTS_ROOT, 'download-service-bw-'));
-    ({ server } = await serveZipFixture(dir, { 'game.exe': RANDOM_CONTENT }));
+describe('createThrottledPassThrough', () => {
+  it('deja pasar todo el contenido intacto, sin límite configurado', async () => {
+    const bucket = new TokenBucket();
+    const content = Buffer.from('hola mundo, esto es una descarga de prueba');
+
+    const chunks = await collectOutput(bucket, content);
+
+    expect(Buffer.concat(chunks).toString()).toBe(content.toString());
   });
 
-  afterEach(async () => {
-    await server.close();
-    rmSync(dir, { recursive: true, force: true });
-    db.$client.close();
-  });
+  it('con un límite bajo, un chunk que supera el cupo se trocea en varios push()', async () => {
+    // Bucket con cupo inicial de solo 10 bytes: un chunk de 30 tiene que
+    // salir dividido, esperando la recarga entre trozos (setTimeout real,
+    // de milisegundos — no se mide el tiempo, solo el troceo).
+    const bucket = new TokenBucket(10, Date.now());
+    const content = Buffer.from('x'.repeat(30));
 
-  it('con un límite bajo, la descarga tarda más que sin límite (el token bucket frena de verdad)', async () => {
-    const { sha256 } = await serveZipFixture(dir, { 'game.exe': RANDOM_CONTENT });
-    const installPath = join(dir, 'install');
-    const service = new DownloadService(new DownloadRepository(db), 500);
+    const chunks = await collectOutput(bucket, content);
 
-    const enqueued = service.enqueue({ appId: 730, sourceUrl: server.url, installPath, expectedSha256: sha256 });
-    expect(isOk(enqueued)).toBe(true);
-    if (!isOk(enqueued)) return;
-
-    const startedAt = Date.now();
-    await vi.waitFor(
-      () => {
-        const found = service.list().find((d) => d.state.id === enqueued.value.id);
-        expect(found?.state.status).toBe('done');
-      },
-      // Timeout generoso: bajo carga (toda la suite corriendo en paralelo)
-      // el proceso puede tardar bastante más que en aislado; lo que importa
-      // es la aserción de tiempo mínimo de abajo, no cuánto tarda el waitFor.
-      { timeout: 30000, interval: 100 },
-    );
-
-    // El ZIP completo (>1500 bytes) a 500 B/s tarda al menos ~2 segundos;
-    // sin límite este mismo test termina en milisegundos (ver el resto de
-    // tests de DownloadService). No se afirma un tiempo exacto — solo que el
-    // límite frena de verdad, no que es un no-op.
-    expect(Date.now() - startedAt).toBeGreaterThan(1000);
-    expect(readFileSync(join(installPath, 'game.exe'), 'utf8')).toBe(RANDOM_CONTENT);
-  }, 35000);
+    expect(Buffer.concat(chunks).toString()).toBe(content.toString());
+    expect(chunks.length).toBeGreaterThan(1);
+    // El primer trozo nunca supera el cupo inicial del bucket.
+    expect(chunks[0]?.length).toBeLessThanOrEqual(10);
+  }, 10000);
 });

@@ -57,12 +57,18 @@ sin pasar por ninguna librería que valide el nombre.
 Este repo no tiene todavía ningún patrón main→renderer (solo invoke/handle,
 request-response, ADR-0002) — definir uno seguro (allowlist de eventos, mismo espíritu
 que el contrato de canales) es una decisión de arquitectura aparte que no se abrió en
-esta fase. El renderer (cuando se escriba) leerá el progreso haciendo polling de
-`downloads.list` con TanStack Query (`refetchInterval` mientras haya una descarga
-activa) — reutiliza el patrón invoke/handle que ya existe, a costa de una latencia de
-hasta un intervalo de polling en vez de progreso instantáneo. Si en el futuro hace falta
-progreso más fino, eso es un ADR nuevo sobre eventos main→renderer, no una ampliación de
-este contrato.
+esta fase. `useDownloadsQuery` lee el progreso haciendo polling de `downloads.list` con
+TanStack Query (`refetchInterval` cada 500 ms mientras haya una descarga no terminal;
+se apaga solo cuando todas están en `done`/`failed`) — reutiliza el patrón invoke/handle
+que ya existe, a costa de una latencia de hasta 500 ms en vez de progreso instantáneo.
+Si en el futuro hace falta progreso más fino, eso es un ADR nuevo sobre eventos
+main→renderer, no una ampliación de este contrato.
+
+Las mutaciones (`useEnqueueDownload`, `usePauseDownload`, `useCancelDownload`) invalidan
+la query de la cola en `onSuccess`, así que la UI refleja el cambio de inmediato tras la
+acción del usuario, sin esperar al siguiente tick de polling — el polling cubre el
+progreso que avanza solo (bytes descargados), la invalidación cubre las acciones
+explícitas.
 
 ## `resumeInterrupted()` no valida `state.status !== 'downloading' -> downloading`
 
@@ -83,3 +89,22 @@ las descargas de esa instancia del servicio, no configurable por descarga indivi
 No hay UI de Ajustes todavía que lo exponga — `registry.ts` y `download-resumer.ts`
 instancian el servicio sin límite. Cuando exista esa UI, este constructor ya admite el
 valor; no hace falta ningún cambio de esquema.
+
+## `App.tsx` monta Biblioteca y Descargas juntas, sin router
+
+La misma decisión que ya regía cuando solo existía Biblioteca ("TanStack Router se
+añade cuando haga falta navegación real") se extiende: con dos secciones, mostrarlas
+ambas en la misma pantalla (`<h1>` + `LibraryGrid` + `<h2>` + `DownloadsList`) sigue
+siendo más simple que introducir rutas para dos bloques verticales. El router llega
+cuando el número de secciones (o la necesidad de deep-linking) lo justifique, no antes.
+
+## `useEnqueueDownload` existe sin ningún componente que lo llame
+
+El hook está completo y testeado (incluida la invalidación de la cola al completar),
+pero `EnqueueDownloadInput` no se exporta desde el barrel de la feature ni desde el
+propio archivo, porque no hay ningún flujo de UI que arme ese input todavía — "elegir
+qué descargar" (de dónde sale la `sourceUrl` y el `expectedSha256`) es responsabilidad
+de una feature futura, no de la pantalla de la cola. Cuando esa feature exista, importa
+el hook directo desde `use-enqueue-download.ts` y expone el tipo si hace falta — no se
+adelanta la exportación sin un consumidor real (regla general del repo: cero código sin
+consumidor, knip lo marcaría).

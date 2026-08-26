@@ -18,6 +18,12 @@ export default defineConfig({
           name: 'main',
           environment: 'node',
           include: ['src/main/**/*.test.ts', 'src/preload/**/*.test.ts'],
+          // Varios tests de main/features/downloads levantan un servidor HTTP
+          // real y escriben a SQLite real; bajo la carga de correr los ~50
+          // archivos de este proyecto en paralelo (contención real de CPU/
+          // I/O, no un bug de los tests) el timeout default de 5 s no siempre
+          // alcanza, aunque en aislado terminen en milisegundos.
+          testTimeout: 20000,
         },
       },
       {

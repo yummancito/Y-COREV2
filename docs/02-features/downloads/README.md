@@ -37,6 +37,12 @@ apps/desktop/src/main/features/downloads/
 
 apps/desktop/src/main/bootstrap/download-resumer.ts
   resumeInterruptedDownloads   llama a DownloadService.resumeInterrupted() en el arranque
+
+apps/desktop/src/renderer/features/downloads/
+  index.ts                     API pública: DownloadsList
+  hooks/                        useDownloadsQuery (polling), useEnqueueDownload,
+                                 usePauseDownload, useCancelDownload
+  components/                   DownloadsList (pantalla), DownloadRow (una fila)
 ```
 
 - `packages/ipc-contract` — canales `downloads.enqueue`, `downloads.list`,
@@ -44,18 +50,23 @@ apps/desktop/src/main/bootstrap/download-resumer.ts
 
 Ver [data-model.md](data-model.md) para el esquema de la tabla `downloads` y el mapeo
 a `DownloadState`, [decisions.md](decisions.md) para decisiones locales que no
-ameritaron ampliar el ADR. El diseño completo (por qué `undici`, por qué SHA-256 en vez
-de SHA-512, por qué solo ZIP con `yauzl`, por qué el índice único parcial, etc.) está en
+ameritaron ampliar el ADR, [ui-flows.md](ui-flows.md) para los recorridos de usuario. El
+diseño completo (por qué `undici`, por qué SHA-256 en vez de SHA-512, por qué solo ZIP
+con `yauzl`, por qué el índice único parcial, etc.) está en
 [ADR-0004](../../adr/0004-motor-de-descargas.md) — no se repite aquí.
 
 ## Estado
 
-**Main completo** (núcleo puro + persistencia + I/O + orquestación + IPC), 112 tests,
-~94% de cobertura en la feature. Verificado end-to-end el criterio de HECHO más duro de
-la fase: una descarga interrumpida a mitad (fila `downloading` en la DB, archivo parcial
-en disco) se retoma desde el offset exacto persistido, pidiendo el `Range` HTTP correcto,
-y termina instalada.
+**Fase 4 completa** (main + renderer): núcleo puro, persistencia, I/O, orquestación,
+IPC, y la pantalla de la cola de descargas montada en `App.tsx`. 134 tests, ~93% de
+cobertura combinada de la feature. Verificado end-to-end el criterio de HECHO más duro
+de la fase: una descarga interrumpida a mitad (fila `downloading` en la DB, archivo
+parcial en disco) se retoma desde el offset exacto persistido, pidiendo el `Range` HTTP
+correcto, y termina instalada.
 
-**Todavía no existe**: el lado renderer (`renderer/features/downloads/`: store de UI,
-hooks de TanStack Query con polling, componentes de la cola). Sin renderer, el canal
-`downloads.*` es invocable pero no tiene ninguna UI que lo use todavía.
+**Lo que falta, fuera del alcance de esta fase**: un flujo de UI para "elegir qué
+descargar" (`useEnqueueDownload` existe y está testeado, pero ningún componente lo
+llama todavía — encolar una descarga real necesita saber de dónde sale la URL y el
+hash, que es responsabilidad de una feature futura, no de esta). Eventos push
+main→renderer en vez de polling (ver [decisions.md](decisions.md)). Configurar
+`maxBytesPerSecond` desde Ajustes.

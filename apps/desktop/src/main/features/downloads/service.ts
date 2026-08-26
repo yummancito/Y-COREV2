@@ -54,7 +54,14 @@ async function writeChunkThrottled(transform: Transform, bucket: TokenBucket, ch
   }
 }
 
-function createThrottledPassThrough(bucket: TokenBucket): Transform {
+/**
+ * Exportada solo para test (`service-bandwidth.test.ts`): testear el
+ * throttling contra un `Transform` puro, con un `TokenBucket` de reloj
+ * inyectado, es determinista y rápido — verificar lo mismo a través de
+ * `DownloadService` completo requeriría medir tiempo de reloj real bajo
+ * carga variable de la suite (ver aprendizaje.md).
+ */
+export function createThrottledPassThrough(bucket: TokenBucket): Transform {
   const transform = new Transform({
     transform(chunk: Buffer, _encoding, callback) {
       writeChunkThrottled(transform, bucket, chunk).then(
