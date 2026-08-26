@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ycore-update-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "kv_namespaces": [{ "binding": "CONFIG", "id": "REEMPLAZAR_EN_DEPLOY_REAL" }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ycore_updates",
+      "database_id": "REEMPLAZAR_EN_DEPLOY_REAL"
+    }
+  ],
+  "r2_buckets": [{ "binding": "RELEASES", "bucket_name": "ycore-releases" }],
+  "vars": {}
+}

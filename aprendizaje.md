@@ -677,3 +677,40 @@ implementa, con reloj inyectado si aplica. Y al capturar el output de un stream 
 Node para aserciones, preferir `stream.on('data', ...)` + `pipeline(source, stream)`
 sobre un `async function*` como sink — el segundo puede interactuar mal con el
 backpressure de un `Transform` intermedio y colgar sin ningún mensaje de error útil.
+
+## 2026-08-26 — `@cloudflare/vitest-pool-workers` 0.2x ya no usa `defineWorkersConfig` de `/config`
+
+**Contexto:** al montar `services/update-worker` (Fase 5, ADR-0005) y su `vitest.config.ts`
+para correr los tests del dominio puro dentro de `workerd` real (no una emulación en
+Node), siguiendo la documentación clásica de Cloudflare que usa
+`defineWorkersConfig` importado de `@cloudflare/vitest-pool-workers/config`.
+
+**Error:** `vitest run` fallaba al cargar la config con
+`Error: Missing "./config" specifier in "@cloudflare/vitest-pool-workers" package`.
+
+**Causa:** la versión instalada (`0.22.0`, la última disponible, que trae compatibilidad
+con Vitest 4 — el paquete incluye un codemod `vitest-v3-to-v4`) cambió su superficie
+pública: ya no expone un subpath `/config` con `defineWorkersConfig`. La API nueva
+exporta `cloudflarePool(options)` desde el punto de entrada principal (`.`), pensado
+para usarse como el valor de `test.pool` dentro de un `vitest/config` `defineConfig`
+normal, no como un wrapper que reemplaza a `defineConfig`. Se confirmó revisando el
+`.d.mts` real instalado en `node_modules` (la documentación pública, en este momento,
+describe la API anterior).
+
+**Solución:** `vitest.config.ts` quedó así:
+```ts
+import { defineConfig } from 'vitest/config';
+import { cloudflarePool } from '@cloudflare/vitest-pool-workers';
+
+export default defineConfig({
+  test: { pool: cloudflarePool({ wrangler: { configPath: './wrangler.jsonc' }, isolatedStorage: true }) },
+});
+```
+Además, la cobertura con `@vitest/coverage-v8` no funciona dentro de `workerd` (no es V8
+puro de Node): hace falta `@vitest/coverage-istanbul` y `coverage: { provider: 'istanbul' }`.
+
+**Cómo evitarlo:** con paquetes de Cloudflare en preview/alpha activo (`miniflare` con
+sufijo `-alpha`, versiones `0.2x` que cambian rápido), no asumir que una guía o tutorial
+público describe la API instalada — leer el `.d.mts`/`package.json#exports` real bajo
+`node_modules` de la versión que `pnpm` resolvió, sobre todo cuando el error menciona un
+subpath de import que "debería" existir según la documentación.

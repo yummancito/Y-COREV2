@@ -1,0 +1,28 @@
+{
+  "name": "@ycore/update-worker",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "types": "wrangler types",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "lint": "eslint src",
+    "typecheck": "wrangler types && tsc --noEmit",
+    "test": "wrangler types && vitest run --coverage",
+    "db:migrate:local": "wrangler d1 migrations apply ycore_updates --local"
+  },
+  "dependencies": {
+    "@ycore/update-contract": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@vitest/coverage-istanbul": "^4.1.11",
+    "@ycore/eslint-config": "workspace:*",
+    "@ycore/tsconfig": "workspace:*",
+    "eslint": "^9.20.0",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.126.0"
+  }
+}

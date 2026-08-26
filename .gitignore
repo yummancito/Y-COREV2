@@ -28,6 +28,10 @@ build/
 .dev.vars
 wrangler.toml.local
 
+# Cloudflare Workers — generado por `wrangler types`, se regenera en cada test/typecheck
+worker-configuration.d.ts
+.wrangler/
+
 # Tests y cobertura
 coverage/
 playwright-report/
