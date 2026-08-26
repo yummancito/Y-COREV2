@@ -21,6 +21,7 @@ const SCOPES_EXISTENTES = [
   'steam-kit',
   'update-contract',
   'update-worker',
+  'updater-client',
   // infraestructura del propio repo (sin código de producto)
   'repo',
   'docs',

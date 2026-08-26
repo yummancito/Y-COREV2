@@ -119,11 +119,11 @@ Decisiones de estilo (a propósito distintas de cualquier referencia externa):
 | `packages/ipc-contract` | El corazón (ADR-0002): mapa de canales IPC con Zod input/output, `.describe()` obligatorio verificado en runtime. | Implementado, con tests, cobertura 100%. Canales `app.ping`, `library.list`, `library.launch`, `steam.importLibrary`, `downloads.enqueue`/`list`/`pause`/`cancel`. |
 | `packages/core-domain` | `Game`, `Installation`, `resolveLaunchCommand`, y (Fase 4, ADR-0004) `transition`/`ALLOWED_TRANSITIONS`, `ProgressThrottle`, `TokenBucket` — tipos y reglas puras, cero Electron/`node:fs`. | Implementado, con tests, cobertura 100%. Usado por `main/features/library` y `main/features/downloads`. |
 | `packages/steam-kit` | Parsers puros de VDF/ACF: `parseVdf`, `parseLibraryFolders`, `parseAppManifest`, `parseLoginUsers`, `parseDepotKeys`. | Implementado (Fase 3), 40 tests, cobertura ~98%. Recibe contenido ya leído, cero Electron/`node:fs`. |
-| `packages/update-contract` | Schemas Zod compartidos por `services/update-worker` y `packages/updater-client` (ADR-0005): `CheckRequestSchema`/`CheckResponseSchema`, `ManifestSchema`, `AdminMaintenanceSchema`/`AdminReleaseSchema`. | Implementado (Fase 5), 21 tests, cobertura 100%. Cero dependencias más allá de `zod` — no depende de `ipc-contract` ni de `result`. |
+| `packages/update-contract` | Schemas Zod compartidos por `services/update-worker` y `packages/updater-client` (ADR-0005): `CheckRequestSchema`/`CheckResponseSchema`, `ManifestSchema`, `AdminMaintenanceSchema`/`AdminReleaseSchema`. | Implementado (Fase 5), 23 tests, cobertura 100%. Cero dependencias más allá de `zod` — no depende de `ipc-contract` ni de `result`. |
+| `packages/updater-client` | Cliente de actualizaciones (ADR-0003/ADR-0005) para el main process: `checkForUpdate` (silencio total ante cualquier fallo), `signCheckRequest` (HMAC-SHA256), `verifyManifestSignature` (Ed25519, acepta rotación de claves), `verifyArtifactSha512`. | Implementado (Fase 5), 18 tests, ~98% cobertura. Depende solo de `update-contract` y `result`. |
 
-Las demás carpetas de `packages/` que aparecen en el roadmap (`updater-client`, `ui-kit`,
-`i18n`) todavía no existen — se crean en las fases correspondientes (ver
-`docs/00-overview/roadmap.md`).
+Las demás carpetas de `packages/` que aparecen en el roadmap (`ui-kit`, `i18n`) todavía no
+existen — se crean en las fases correspondientes (ver `docs/00-overview/roadmap.md`).
 
 ## `services/` y `plugins/`
 
@@ -146,10 +146,6 @@ services/update-worker/
 
 Documentación en `docs/03-services/update-worker/`. 73 tests contra `workerd` real,
 ~90% de cobertura.
-
-Documentación en `docs/03-services/update-worker/`. Falta `src/index.ts` (el `fetch`
-handler + tabla de rutas), `src/routes/*`, `src/data/*` (KV/D1/R2 real) y las migraciones
-D1 — sin eso todavía no es desplegable.
 
 ## `tools/`
 

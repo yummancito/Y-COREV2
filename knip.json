@@ -12,6 +12,7 @@
     "packages/logger": {},
     "packages/ipc-contract": {},
     "packages/update-contract": {},
+    "packages/updater-client": {},
     "apps/web-landing": {
       "project": ["src/**/*.{astro,ts}"]
     },
