@@ -742,3 +742,25 @@ distintos (`PoolRunnerInitializer` vs `Vite.Plugin`), probar con el ejemplo más
 posible (un test de una línea) antes de asumir que el problema está en el código propio
 — aquí "los tests pasan" con la config equivocada ocultó el bug hasta que se necesitó
 justo la pieza (`cloudflare:test`) que esa config no habilitaba.
+
+## 2026-08-26 — Commit de `packages/updater-client` rechazado por scope-enum
+
+**Contexto:** al commitear el paquete completo de `packages/updater-client` (Fase 5,
+ADR-0003/ADR-0005), tras lint/typecheck/test verdes en todo el monorepo.
+
+**Error:** `git commit` con scope `updater-client` fue rechazado por commitlint:
+`scope must be one of [...]` — la lista no incluía `updater-client`.
+
+**Causa:** el ADR-0005 ya había declarado la regla de boundaries para `updater-client`
+en `packages/eslint-config/rules-de-boundaries.js`, pero `commitlint.config.mjs` tiene su
+propia lista cerrada de scopes (`SCOPES_EXISTENTES`) que no se actualizó en el mismo
+momento — son dos listas independientes que hay que mantener en sincronía a mano.
+
+**Solución:** se añadió `'updater-client'` a `SCOPES_EXISTENTES` en
+`commitlint.config.mjs` y se rehizo el commit.
+
+**Cómo evitarlo:** al crear un package/app/feature nuevo, tocar en el mismo cambio tanto
+`rules-de-boundaries.js` (si importa/es importado por otros) como
+`commitlint.config.mjs` (scope del commit) — son dos archivos distintos que se olvidan
+por separado. Considerar en el futuro derivar `SCOPES_EXISTENTES` automáticamente de los
+nombres de `pnpm-workspace.yaml` en vez de mantener la lista a mano.
