@@ -66,6 +66,7 @@ Una carpeta por feature en [`02-features/`](02-features/). Cada una con `README.
 | [0002](adr/0002-contrato-ipc-unico.md) | Contrato IPC tipado único | Aceptado |
 | [0003](adr/0003-abandonar-electron-updater.md) | Cliente de actualizaciones propio | Aceptado |
 | [0004](adr/0004-motor-de-descargas.md) | Motor de descargas único, máquina de estados pura | Aceptado |
+| [0005](adr/0005-update-worker-en-cloudflare.md) | Update-worker nativo, contrato Zod compartido, firma en CI | Aceptado |
 
 Plantilla: [`adr/0000-template.md`](adr/0000-template.md).
 Un ADR aceptado es **inmutable**: para cambiarlo se escribe uno nuevo que lo reemplaza.

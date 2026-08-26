@@ -19,6 +19,7 @@ const SCOPES_EXISTENTES = [
   'ipc-contract',
   'core-domain',
   'steam-kit',
+  'update-contract',
   // infraestructura del propio repo (sin código de producto)
   'repo',
   'docs',

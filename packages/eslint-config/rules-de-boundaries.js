@@ -24,6 +24,9 @@ export const boundariesSettings = {
     { type: 'logger', pattern: 'packages/logger/**' },
     { type: 'result', pattern: 'packages/result/**' },
     { type: 'plugin', pattern: 'plugins/*/**' },
+    { type: 'update-contract', pattern: 'packages/update-contract/**' },
+    { type: 'updater-client', pattern: 'packages/updater-client/**' },
+    { type: 'update-worker', pattern: 'services/update-worker/**' },
   ],
 };
 
@@ -60,6 +63,15 @@ export const rulesDeBoundaries = {
         { from: 'core-domain', allow: ['result'] },
         { from: 'steam-kit', allow: ['core-domain', 'result'] },
         { from: 'plugin', allow: ['ipc-contract', 'core-domain', 'result'] },
+        {
+          from: 'update-contract',
+          allow: [],
+          message:
+            'packages/update-contract es solo schemas Zod compartidos por el Worker y el ' +
+            'cliente de updates — no depende de nada del repo, ni siquiera de result (ADR-0005).',
+        },
+        { from: 'updater-client', allow: ['update-contract', 'result'] },
+        { from: 'update-worker', allow: ['update-contract', 'result'] },
       ],
     },
   ],
