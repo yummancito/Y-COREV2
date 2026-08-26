@@ -127,16 +127,25 @@ Las demás carpetas de `packages/` que aparecen en el roadmap (`updater-client`,
 
 ## `services/` y `plugins/`
 
-`plugins/*` vacío (Fase 7+). `services/update-worker` (Fase 5, ADR-0005) en construcción:
+`plugins/*` vacío (Fase 7+). `services/update-worker` (Fase 5, ADR-0005) completo y
+desplegable, falta `tools/cli` y la verificación con cuenta real:
 
 ```
 services/update-worker/
 ├── wrangler.jsonc          bindings: KV CONFIG, D1 DB, R2 RELEASES
-├── vitest.config.ts         cloudflarePool: tests dentro de workerd real, sin cuenta
+├── vitest.config.ts         cloudflareTest (plugin de Vite): tests en workerd real, sin cuenta
+├── migrations/0001_initial.sql   releases, maintenance_log, check_stats (SQL crudo)
 └── src/
-    ├── env.ts               WorkerEnv: bindings generados + secrets
-    └── domain/               PURO — rollout.ts, decide.ts, signed-url.ts, config.ts, release-record.ts
+    ├── index.ts              ÚNICO export default { fetch } + tabla de rutas
+    ├── env.ts                WorkerEnv: bindings generados + secrets
+    ├── domain/               PURO — rollout.ts, decide.ts, signed-url.ts, config.ts, release-record.ts
+    ├── data/                 KV/D1/R2 real — config-kv, releases-d1, stats-d1, maintenance-log-d1, downloads-r2
+    ├── http/                 responses.ts, auth.ts
+    └── routes/               check.ts, download.ts, admin/{maintenance,release,stats}.ts
 ```
+
+Documentación en `docs/03-services/update-worker/`. 73 tests contra `workerd` real,
+~90% de cobertura.
 
 Documentación en `docs/03-services/update-worker/`. Falta `src/index.ts` (el `fetch`
 handler + tabla de rutas), `src/routes/*`, `src/data/*` (KV/D1/R2 real) y las migraciones

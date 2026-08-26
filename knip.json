@@ -11,16 +11,24 @@
     "packages/result": {},
     "packages/logger": {},
     "packages/ipc-contract": {},
+    "packages/update-contract": {},
     "apps/web-landing": {
       "project": ["src/**/*.{astro,ts}"]
     },
     "apps/desktop": {
       "entry": ["src/renderer/main.tsx"],
       "project": ["src/**/*.{ts,tsx}"]
+    },
+    "services/update-worker": {
+      "project": ["src/**/*.ts"]
     }
   },
   "ignoreDependencies": [
     // Se invoca desde .githooks/commit-msg (pnpm exec commitlint), no vía import.
-    "@commitlint/cli"
+    "@commitlint/cli",
+    // `cloudflare:test` es un especificador de módulo virtual que expone
+    // @cloudflare/vitest-pool-workers dentro del worker de test — knip lo
+    // interpreta como el paquete npm "cloudflare", que no existe.
+    "cloudflare"
   ]
 }

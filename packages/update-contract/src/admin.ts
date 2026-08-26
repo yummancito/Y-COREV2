@@ -21,6 +21,14 @@ export const AdminReleaseSchema = z
     rollout: z.number().int().min(0).max(100).describe('Porcentaje inicial de rollout (0-100).'),
     r2Key: z.string().describe('Clave del instalador completo dentro del bucket R2.'),
     blockmapKey: z.string().nullable().describe('Clave del .blockmap en R2, o null si no hay diferencial.'),
+    size: z.number().int().positive().describe('Tamaño del instalador completo, en bytes.'),
+    sha512: z.string().describe('Hash SHA-512 del instalador completo, en hexadecimal.'),
+    blockmapSha512: z.string().nullable().describe('Hash SHA-512 del .blockmap, o null si no hay diferencial.'),
+    estimatedDeltaSize: z.number().int().nonnegative().nullable().describe('Tamaño estimado de la descarga diferencial, o null.'),
+    notes: z
+      .object({ es: z.string().describe('Notas en español.'), en: z.string().describe('Notas en inglés.') })
+      .describe('Notas de la release, por idioma.'),
+    mandatory: z.boolean().describe('Si esta actualización es obligatoria.'),
   })
   .describe('Body de POST /v1/admin/release — el manifest ya fue subido a R2 firmado por CI.');
 

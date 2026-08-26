@@ -14,7 +14,9 @@
     "db:migrate:local": "wrangler d1 migrations apply ycore_updates --local"
   },
   "dependencies": {
-    "@ycore/update-contract": "workspace:*"
+    "@ycore/result": "workspace:*",
+    "@ycore/update-contract": "workspace:*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.22.0",

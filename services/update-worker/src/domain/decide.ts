@@ -10,9 +10,19 @@
 
 import { CheckResponseSchema, type CheckResponse } from '@ycore/update-contract';
 import { isInRollout } from './rollout.js';
-import { signDownloadUrl } from './signed-url.js';
+import { signDownloadUrl, type SignedDownloadParams } from './signed-url.js';
 import type { YCoreConfig } from './config.js';
 import type { ReleaseRecord } from './release-record.js';
+
+/** Arma la URL de `/v1/download` con los parámetros de la firma, incluido `clientId` (necesario para re-verificar). */
+function buildDownloadUrl(version: string, kind: 'full' | 'blockmap', clientId: string, signed: SignedDownloadParams): string {
+  const params = new URLSearchParams({
+    t: String(signed.expiresAtSeconds),
+    sig: signed.signature,
+    clientId,
+  });
+  return `/v1/download/${version}/${kind}?${params.toString()}`;
+}
 
 const UP_TO_DATE_STATUS = 'up-to-date' as const;
 
@@ -65,7 +75,7 @@ export async function decideCheckResponse(input: DecideInput, secret: string, no
   if (!inRollout) return upToDate(config);
 
   const artifactSigned = await signDownloadUrl(secret, latestRelease.r2Key, clientId, nowSeconds);
-  const artifactUrl = `/v1/download/${latestRelease.version}/full?t=${artifactSigned.expiresAtSeconds}&sig=${artifactSigned.signature}`;
+  const artifactUrl = buildDownloadUrl(latestRelease.version, 'full', clientId, artifactSigned);
 
   const delta =
     latestRelease.blockmapKey === null
@@ -97,5 +107,5 @@ export async function decideCheckResponse(input: DecideInput, secret: string, no
 async function buildBlockmapUrl(secret: string, release: ReleaseRecord, clientId: string, nowSeconds: number): Promise<string> {
   if (release.blockmapKey === null) throw new Error('buildBlockmapUrl llamado sin blockmapKey');
   const signed = await signDownloadUrl(secret, release.blockmapKey, clientId, nowSeconds);
-  return `/v1/download/${release.version}/blockmap?t=${signed.expiresAtSeconds}&sig=${signed.signature}`;
+  return buildDownloadUrl(release.version, 'blockmap', clientId, signed);
 }

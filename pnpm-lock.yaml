@@ -301,9 +301,15 @@ importers:
 
   services/update-worker:
     dependencies:
+      '@ycore/result':
+        specifier: workspace:*
+        version: link:../../packages/result
       '@ycore/update-contract':
         specifier: workspace:*
         version: link:../../packages/update-contract
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: ^0.22.0

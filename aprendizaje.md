@@ -709,8 +709,36 @@ export default defineConfig({
 Además, la cobertura con `@vitest/coverage-v8` no funciona dentro de `workerd` (no es V8
 puro de Node): hace falta `@vitest/coverage-istanbul` y `coverage: { provider: 'istanbul' }`.
 
+**Corrección posterior, el mismo día**: `cloudflarePool(...)` en `test.pool` hace correr
+los tests, pero **cualquier archivo que importe `cloudflare:test`** (para usar `env`,
+`applyD1Migrations`, etc. — imprescindible para tests de integración reales contra
+KV/D1/R2) falla con `Cannot find package 'cloudflare:test'`, reproducible incluso con un
+test mínimo de una sola línea. La causa: `cloudflarePool` (que devuelve un
+`PoolRunnerInitializer` para `test.pool`) y `cloudflareTest` (que devuelve un
+`Vite.Plugin` para `plugins: [...]`) son dos entradas distintas del mismo paquete, y
+**solo la segunda** deja que el propio plugin registre en Vite la resolución del import
+virtual `cloudflare:test` antes de que Vitest transforme los archivos de test. Usar
+`cloudflarePool` en `test.pool` arranca el runtime worker igual (por eso los tests que no
+tocan `cloudflare:test` pasan sin problema), pero sin el plugin, el import del módulo
+virtual nunca se intercepta.
+
+**Solución final:**
+```ts
+import { defineConfig } from 'vitest/config';
+import { cloudflareTest } from '@cloudflare/vitest-pool-workers';
+
+export default defineConfig({
+  plugins: [cloudflareTest({ wrangler: { configPath: './wrangler.jsonc' }, isolatedStorage: true })],
+  test: { coverage: { provider: 'istanbul' } },
+});
+```
+
 **Cómo evitarlo:** con paquetes de Cloudflare en preview/alpha activo (`miniflare` con
 sufijo `-alpha`, versiones `0.2x` que cambian rápido), no asumir que una guía o tutorial
 público describe la API instalada — leer el `.d.mts`/`package.json#exports` real bajo
-`node_modules` de la versión que `pnpm` resolvió, sobre todo cuando el error menciona un
-subpath de import que "debería" existir según la documentación.
+`node_modules` de la versión que `pnpm` resolvió. Y cuando dos funciones del mismo
+paquete tienen nombres parecidos (`cloudflarePool` / `cloudflareTest`) y tipos de retorno
+distintos (`PoolRunnerInitializer` vs `Vite.Plugin`), probar con el ejemplo más mínimo
+posible (un test de una línea) antes de asumir que el problema está en el código propio
+— aquí "los tests pasan" con la config equivocada ocultó el bug hasta que se necesitó
+justo la pieza (`cloudflare:test`) que esa config no habilitaba.

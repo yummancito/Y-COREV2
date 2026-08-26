@@ -1,7 +1,7 @@
 {
   "extends": "@ycore/tsconfig/base.json",
   "compilerOptions": {
-    "types": []
+    "types": ["@cloudflare/vitest-pool-workers/types"]
   },
   "include": ["src/**/*.ts", "worker-configuration.d.ts"]
 }
