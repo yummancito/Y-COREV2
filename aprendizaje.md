@@ -1110,3 +1110,35 @@ en base a "existe o no existe un archivo", preguntarse si ese archivo podría ex
 pero ser el equivocado — verificar la propiedad real que importa (aquí, "carga bajo
 este runtime"), no un proxy indirecto de esa propiedad (aquí, "existe con este
 nombre").
+
+## 2026-08-27 — `UpdateService.checkNow()` rompía la promesa de "nunca un error visible"
+
+**Contexto:** cada arranque de la app en desarrollo (sin `YCORE_WORKER_URL` ni
+`YCORE_CLIENT_SECRET` configuradas) mostraba en consola
+`UnhandledPromiseRejectionWarning: DataError: Zero-length key is not supported`.
+
+**Error:** `main/bootstrap/update-scheduler.ts` construye un `UpdateService`
+"inerte" (`createInertUpdateService()`) con `clientSecret: ''` cuando falta
+configuración de entorno, pensado para no hacer nada real. Pero
+`UpdateService.checkNow()` llamaba a `signCheckRequest(this.config.clientSecret,
+...)` sin ningún try/catch, y firmar un HMAC con una clave de longitud cero revienta
+a nivel de WebCrypto (`crypto.subtle.importKey`) antes de llegar siquiera a la
+petición de red.
+
+**Causa:** el diseño de ADR-0003/roadmap C.2 exige que "cualquier error de red o
+timeout" se trate como `up-to-date` en silencio — pero esa garantía vivía solo en
+`checkForUpdate` (la función que hace la petición HTTP), no en `checkNow()` en su
+conjunto. Un fallo *antes* de la petición de red (firmar la request) quedaba fuera
+de esa red de seguridad.
+
+**Solución:** todo el cuerpo de `checkNow()` quedó envuelto en un try/catch que
+degrada a `{ phase: 'up-to-date' }` ante cualquier excepción, con un log de nivel
+`warn` (no error) — coherente con la regla de "el usuario nunca ve un error de
+update, nunca".
+
+**Cómo evitarlo:** cuando una función pública documenta la garantía "nunca lanza"
+o "siempre degrada a X", verificar que esa garantía envuelva la función *completa*,
+no solo la sub-llamada que a primera vista parece la más propensa a fallar. Un
+`UpdateServiceConfig` con campos vacíos/placeholder (`clientSecret: ''`, URLs
+dummy) es exactamente el tipo de entrada que un test debería cubrir explícitamente
+— se añadió `service.test.ts > "configuración inerte"` para esto.

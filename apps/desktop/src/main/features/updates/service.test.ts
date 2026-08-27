@@ -32,6 +32,22 @@ describe('UpdateService.checkNow — sin actualización', () => {
   });
 });
 
+describe('UpdateService.checkNow — configuración inerte', () => {
+  it('con clientSecret vacío (config inerte), degrada a up-to-date en vez de rechazar la promesa', async () => {
+    const service = new UpdateService({
+      workerBaseUrl: 'http://127.0.0.1:0',
+      clientSecret: '',
+      manifestPublicKeysBase64: [],
+      currentVersion: '5.0.0',
+      channel: 'stable',
+      clientId: CLIENT_ID,
+    });
+
+    await expect(service.checkNow()).resolves.toBeUndefined();
+    expect(service.getStatus()).toEqual({ phase: 'up-to-date' });
+  });
+});
+
 describe('UpdateService.installNow', () => {
   it('sin actualización lista, no hace nada', () => {
     const service = new UpdateService({

@@ -56,30 +56,42 @@ export class UpdateService {
    * descarga y verificación en segundo plano (no espera a que termine).
    * Cualquier fallo de red/timeout/validación ya lo trata `checkForUpdate`
    * como `up-to-date` en silencio (ADR-0003) — este método nunca lanza.
+   *
+   * También cubre el caso de configuración inerte (`clientSecret` vacío,
+   * cuando faltan las variables de entorno de build): firmar con una clave
+   * de longitud cero revienta `signCheckRequest` a nivel de WebCrypto, antes
+   * de llegar siquiera a la petición de red — ese fallo también debe
+   * degradar a `up-to-date` en silencio, no propagarse como promesa
+   * rechazada sin manejar (ver aprendizaje.md).
    */
   async checkNow(): Promise<void> {
-    const signature = await signCheckRequest(this.config.clientSecret, this.config.clientId, this.config.currentVersion, this.config.channel);
-    const response = await checkForUpdate(this.config.workerBaseUrl, {
-      version: this.config.currentVersion,
-      channel: this.config.channel,
-      platform: 'win32',
-      arch: 'x64',
-      clientId: this.config.clientId,
-      signature,
-    });
+    try {
+      const signature = await signCheckRequest(this.config.clientSecret, this.config.clientId, this.config.currentVersion, this.config.channel);
+      const response = await checkForUpdate(this.config.workerBaseUrl, {
+        version: this.config.currentVersion,
+        channel: this.config.channel,
+        platform: 'win32',
+        arch: 'x64',
+        clientId: this.config.clientId,
+        signature,
+      });
 
-    if (response.status === 'blocked') {
-      this.status = { phase: 'blocked', reason: response.reason, message: response.message, forceUpdateTo: response.forceUpdateTo };
-      return;
-    }
+      if (response.status === 'blocked') {
+        this.status = { phase: 'blocked', reason: response.reason, message: response.message, forceUpdateTo: response.forceUpdateTo };
+        return;
+      }
 
-    if (response.status !== 'update-available') {
+      if (response.status !== 'update-available') {
+        this.status = { phase: 'up-to-date' };
+        return;
+      }
+
+      this.status = { phase: 'available', version: response.version, mandatory: response.mandatory, notes: response.notes };
+      void this.downloadAndVerify(response);
+    } catch (error) {
+      log.warn('comprobación de actualización falló, tratada como up-to-date', { detail: String(error) });
       this.status = { phase: 'up-to-date' };
-      return;
     }
-
-    this.status = { phase: 'available', version: response.version, mandatory: response.mandatory, notes: response.notes };
-    void this.downloadAndVerify(response);
   }
 
   /**
