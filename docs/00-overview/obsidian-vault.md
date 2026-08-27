@@ -7,8 +7,8 @@ grafo de enlaces, backlinks y búsqueda rápida.
 ## Por qué sigue siendo Markdown estándar, no wikilinks
 
 `docs/.obsidian/app.json` fija `useMarkdownLinks: true` a propósito: todos los
-enlaces internos siguen siendo `[texto](ruta/al/archivo.md)`, nunca
-`[[wikilinks]]`. Dos razones, ninguna negociable:
+enlaces internos siguen siendo Markdown estándar (texto entre corchetes seguido de
+la ruta entre paréntesis), nunca `[[wikilinks]]`. Dos razones, ninguna negociable:
 
 1. **`pnpm check:docs` y los checkers del repo asumen Markdown estándar** — no
    parsean sintaxis de Obsidian. Un enlace en formato wikilink no se detectaría como

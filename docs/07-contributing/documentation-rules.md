@@ -91,6 +91,15 @@ comprobación automática — se revisa la entrada, no solo el error.
 `pnpm changeset`, describiendo el impacto para quien usa la app o el paquete — no el
 detalle técnico de la implementación (eso ya está en el commit y en `decisions.md`).
 
+## Enlaces internos rotos son un fallo de `check:docs`
+
+`tools/scripts/check-docs.mjs` resuelve todo enlace Markdown interno (texto entre
+corchetes seguido de una ruta entre paréntesis) bajo `docs/` y falla si alguno apunta
+a un archivo que no existe —
+así un índice (como `docs/README.md`) no puede prometer un documento que nunca se
+escribió sin que `pnpm check:docs` lo detecte. Enlaces externos (`http(s)://`,
+`mailto:`) y anclas dentro del mismo archivo (`#seccion`) no se verifican.
+
 ## Verificación, no suposición
 
 Antes de dar una tarea por cerrada, ejecutar (no asumir):

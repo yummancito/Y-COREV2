@@ -853,3 +853,41 @@ revisar explícitamente qué pasa con cada una de las otras variantes — "todo 
 es A es B" es correcto solo si de verdad hay nada más que A y B. Un test que cubra cada
 variante de la unión (no solo el camino feliz y "algo distinto") habría atrapado esto
 antes: se añadió `service-blocked.test.ts` específicamente para esta variante.
+
+## 2026-08-27 — `docs/README.md` prometía 17 documentos que nunca se habían escrito
+
+**Contexto:** al completar toda la documentación pendiente del repo (petición
+explícita del usuario de documentar todo lo que hiciera falta antes de dejar la
+sesión en modo bypass).
+
+**Error:** `docs/README.md` (el índice maestro) enlazaba a 17 rutas
+(`00-overview/vision.md`, `01-architecture/overview.md`,
+`06-security/threat-model.md`, todo `05-operations/` salvo uno, etc.) que no
+existían — el índice se había escrito de forma aspiracional al principio del
+proyecto y nunca se completó a medida que avanzaban las fases.
+
+**Causa:** un índice maestro se escribió una sola vez, pensando en la estructura
+final del proyecto, sin ningún checker que verificara que cada entrada del índice
+tuviera su archivo real — a diferencia de `pnpm check:docs`, que sí verifica que
+cada feature/servicio tenga su documentación, pero no verifica los enlaces del
+propio `docs/README.md`.
+
+**Solución:** se escribieron los 17 documentos, verificando cada afirmación contra
+el código real antes de escribirla (no contra lo que el roadmap decía que "debería"
+existir). Ejemplo concreto: `docs/05-operations/maintenance-mode.md` citaba
+`ycore maintenance status` como comando real de la CLI — no existe en
+`tools/cli/src/main.ts` (los comandos reales son `release`, `maintenance`, `yank`,
+`rollout`, `block`, `stats`, y `maintenance` exige `--on`/`--off` explícito, sin
+subcomando `status`). Se corrigió el documento para reflejar los comandos reales.
+También se encontró y corrigió un enlace roto preexistente en `docs/exceptions.md`
+que apuntaba a `adr/0005-firma-ed25519-sin-certificado.md` (nunca existió con ese
+nombre; el ADR-0005 real es `0005-update-worker-en-cloudflare.md`).
+
+**Cómo evitarlo:** al escribir documentación que describe comandos/APIs/comportamiento
+de código ya existente, leer el código real (no solo el roadmap o un documento
+hermano que ya lo mencione) antes de afirmar que algo existe con cierta forma —
+un roadmap describe la intención, no necesariamente lo que terminó implementado.
+`tools/scripts/check-docs.mjs` ahora también resuelve todo enlace Markdown interno
+`[texto](ruta)` bajo `docs/` y falla si alguno apunta a un archivo inexistente —
+la próxima vez que un índice prometa un documento que no se escribió,
+`pnpm check:docs` lo detecta solo, sin depender de una auditoría manual.

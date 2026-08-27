@@ -10,15 +10,21 @@
  * También recorre `services/*` y exige `docs/03-services/<servicio>/README.md`
  * con el mismo criterio (ADR-0005, checker nº 5).
  *
+ * Además verifica que todo enlace Markdown interno `[texto](ruta)` dentro de
+ * `docs/` resuelva a un archivo real — un índice que enlaza a documentación
+ * que nunca se escribió es tan mala señal como una feature sin documentar
+ * (ver aprendizaje.md, entrada "docs/README.md prometía 17 documentos que
+ * nunca se habían escrito").
+ *
  * Uso:  pnpm check:docs
- * Salida: exit 0 = ok · exit 1 = falta documentación (lista qué falta)
+ * Salida: exit 0 = ok · exit 1 = falta documentación o hay un enlace roto (lista qué falta)
  *
  * Se ejecuta en CI y desde el hook Stop, así que no puede depender de nada
  * que no esté instalado: solo Node puro.
  */
 
 import { readdirSync, existsSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 const REPO_ROOT = process.cwd();
 const FEATURE_DIRS = [
@@ -95,6 +101,44 @@ for (const documented of listDirs(DOCS_SERVICES)) {
       `docs/03-services/${documented}/ documenta un servicio que ya no existe en el código. ` +
         `Bórrala o restaura el servicio.`,
     );
+  }
+}
+
+const DOCS_ROOT = join(REPO_ROOT, 'docs');
+const MARKDOWN_LINK_PATTERN = /\]\(([^)]+)\)/g;
+
+/** Todos los `.md` bajo `docs/`, recursivo. */
+function listMarkdownFilesRecursive(dir) {
+  const entries = readdirSync(dir, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    if (entry.name === '.obsidian') continue;
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) files.push(...listMarkdownFilesRecursive(full));
+    else if (entry.name.endsWith('.md')) files.push(full);
+  }
+  return files;
+}
+
+/** `true` si el enlace es externo (http(s), mailto) o un ancla dentro del mismo archivo. */
+function isExternalOrAnchorOnly(link) {
+  return /^(https?:|mailto:)/.test(link) || link.startsWith('#');
+}
+
+for (const mdFile of listMarkdownFilesRecursive(DOCS_ROOT)) {
+  const content = readFileSync(mdFile, 'utf8');
+  for (const match of content.matchAll(MARKDOWN_LINK_PATTERN)) {
+    const rawLink = match[1];
+    if (isExternalOrAnchorOnly(rawLink)) continue;
+
+    const [linkPath] = rawLink.split('#');
+    if (linkPath.length === 0) continue;
+
+    const resolved = resolve(dirname(mdFile), linkPath);
+    if (!existsSync(resolved)) {
+      const relFile = mdFile.slice(REPO_ROOT.length + 1).replaceAll('\\', '/');
+      problems.push(`${relFile}: enlace roto a "${linkPath}" (no existe ${resolved}).`);
+    }
   }
 }
 
