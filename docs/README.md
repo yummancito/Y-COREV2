@@ -10,6 +10,7 @@ abrirla.
 
 | Documento | Para qué |
 |---|---|
+| [Continuar](00-overview/continue.md) | Estado real de la última sesión de trabajo — léelo primero |
 | [Visión](00-overview/vision.md) | Qué es Y-CORE y qué no es |
 | [Roadmap](00-overview/roadmap.md) | Las fases del proyecto y en cuál estamos |
 | [Mapa del repo](00-overview/repo-map.md) | Qué hay en cada carpeta y por qué |

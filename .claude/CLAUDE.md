@@ -10,9 +10,33 @@ harías normalmente, gana lo de aquí.
 
 ## Antes de escribir código
 
-1. Lee `docs/07-contributing/how-to-add-a-feature.md`.
-2. Si la tarea implica una **decisión de arquitectura** → escribe primero un ADR en `docs/adr/`
+1. Lee `docs/00-overview/continue.md` — es el estado real de dónde se quedó la
+   última sesión (fase del roadmap, últimos bugs arreglados, siguiente paso
+   sugerido). Es el punto de entrada, léelo antes que nada más de este archivo.
+2. Lee `docs/07-contributing/how-to-add-a-feature.md`.
+3. Si la tarea implica una **decisión de arquitectura** → escribe primero un ADR en `docs/adr/`
    con la plantilla `0000-template.md`. **No escribas código hasta tener el ADR.**
+
+## Regla de cierre de sesión (obligatoria)
+
+Cuando el usuario dice **"listo por hoy"** o cualquier variante equivalente
+(cerrar la sesión, terminar por hoy, parar aquí), antes de terminar:
+
+1. Reescribe `docs/00-overview/continue.md` por completo (no acumules entradas
+   históricas — sustituye el contenido) con: fecha, en qué fase del roadmap está
+   el proyecto ahora mismo, qué se hizo en esta sesión (con hashes de commit reales,
+   verificados con `git log`), cómo dejar el entorno listo para la próxima sesión
+   (p. ej. estado del binding nativo de `better-sqlite3` si aplica), cualquier
+   hipótesis que el usuario haya descartado explícitamente y no deba reabrirse sin
+   evidencia nueva, y un siguiente paso sugerido concreto.
+2. Confirma que `aprendizaje.md` ya tiene entrada para cada bug real resuelto en la
+   sesión (si falta alguna, añádela ahora, seguido el formato del archivo).
+3. Confirma que todo lo relevante está comiteado (o dile al usuario qué queda
+   sin comitear y por qué).
+
+Esto existe para que la siguiente sesión (de esta instancia o de otra) pueda
+retomar el trabajo leyendo `docs/00-overview/continue.md` en vez de releer todo el
+historial de conversación o adivinar el estado del proyecto.
 3. Si la tarea toca **IPC** → lee `docs/07-contributing/how-to-add-an-ipc-channel.md`.
 
 ---
