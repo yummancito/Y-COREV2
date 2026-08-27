@@ -11,6 +11,7 @@
  * Uso: pnpm --filter @ycore/desktop rebuild:native:node
  */
 
+import { execFileSync } from 'node:child_process';
 import { existsSync, copyFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,13 +27,35 @@ const RELEASE_DIR = join(BSQLITE_ROOT, 'build', 'Release');
 const ACTIVE_PATH = join(RELEASE_DIR, 'better_sqlite3.node');
 const NODE_BINDING = join(RELEASE_DIR, 'node-abi.node');
 
-if (!existsSync(NODE_BINDING)) {
-  // No es un error: significa que nunca se corrió rebuild:native:electron en
-  // esta instalación, así que build/Release/better_sqlite3.node ya es el de
-  // Node (el que trae pnpm install de fábrica) — no hay nada que restaurar.
+/** Comprueba de verdad (proceso hijo) si el `.node` en `path` carga bajo Node. */
+function loadsUnderNode(path) {
+  try {
+    execFileSync(process.execPath, ['-e', `require(${JSON.stringify(path)})`], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+if (existsSync(NODE_BINDING)) {
+  copyFileSync(NODE_BINDING, ACTIVE_PATH);
+  console.log('[rebuild-native-for-node] listo. better-sqlite3 vuelve a cargar el binding de Node.');
+  process.exit(0);
+}
+
+// No hay backup guardado. No basta con que build/Release/better_sqlite3.node
+// exista para asumir que no hay nada que hacer — puede ser el binding de
+// Electron de una corrida de rebuild:native:electron que no llegó a guardar
+// el de Node (ver ese script para el porqué). Se verifica cargándolo de
+// verdad bajo Node antes de decidir.
+if (existsSync(ACTIVE_PATH) && loadsUnderNode(ACTIVE_PATH)) {
   console.log('[rebuild-native-for-node] nada que restaurar, ya está activo el binding de Node.');
   process.exit(0);
 }
 
-copyFileSync(NODE_BINDING, ACTIVE_PATH);
-console.log('[rebuild-native-for-node] listo. better-sqlite3 vuelve a cargar el binding de Node.');
+console.error(
+  '[rebuild-native-for-node] FALLO: no hay ningún binding de Node guardado ni activo. ' +
+    'Corre "pnpm install" (o borra build/Release/ y vuelve a instalar) para regenerar ' +
+    'build/Release/better_sqlite3.node desde cero.',
+);
+process.exit(1);

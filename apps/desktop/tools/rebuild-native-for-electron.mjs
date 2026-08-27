@@ -28,7 +28,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, copyFileSync, renameSync, rmSync } from 'node:fs';
+import { existsSync, copyFileSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -52,11 +52,39 @@ function log(message) {
   console.log(`[rebuild-native-for-electron] ${message}`);
 }
 
+/**
+ * Comprueba si el `.node` en `path` carga de verdad bajo el Node del sistema
+ * (proceso hijo real, no solo `existsSync`) — nunca asumir por el nombre de
+ * archivo o el orden de ejecución que un binding es "el de Node": si este
+ * script corre dos veces seguidas sin restaurar Node entre medias, el activo
+ * ya es el de Electron, y guardarlo como si fuera el de Node deja el paquete
+ * sin ningún binding válido para Node (síntoma real: `NODE_MODULE_VERSION
+ * mismatch` en `pnpm test`, ver aprendizaje.md).
+ */
+function loadsUnderNode(path) {
+  try {
+    execFileSync(process.execPath, ['-e', `require(${JSON.stringify(path)})`], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Primera vez que corre este script: separa el binding original de Node a su
-// propio archivo con nombre estable, para no perderlo nunca.
+// propio archivo con nombre estable, para no perderlo nunca. Se verifica de
+// verdad que cargue bajo Node antes de guardarlo — no basta con que exista.
 if (existsSync(ACTIVE_PATH) && !existsSync(NODE_BINDING)) {
-  log('guardando el binding original de Node como node-abi.node...');
-  copyFileSync(ACTIVE_PATH, NODE_BINDING);
+  if (loadsUnderNode(ACTIVE_PATH)) {
+    log('guardando el binding original de Node como node-abi.node...');
+    copyFileSync(ACTIVE_PATH, NODE_BINDING);
+  } else {
+    log(
+      'ADVERTENCIA: build/Release/better_sqlite3.node no carga bajo Node (probablemente ya es ' +
+        'el de Electron de una corrida anterior sin restaurar). No se guarda como node-abi.node. ' +
+        'Corre "pnpm rebuild:native:node" y luego este script de nuevo si hace falta regenerar ' +
+        'el binding de Node desde cero.',
+    );
+  }
 }
 
 // Si ya había un binding de Electron guardado de una corrida anterior, lo

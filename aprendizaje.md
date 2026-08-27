@@ -1054,3 +1054,59 @@ distintas ahora (`WORKSPACE_PACKAGES` para main, `PRELOAD_EXTRA_BUNDLED` para
 preload) precisamente porque el preload sandboxed tiene una restricción de
 `require()` que el main no tiene. Ninguna prueba de `pnpm test`/`pnpm build`
 detecta esto — solo aparece al abrir DevTools del renderer en un arranque real.
+
+## 2026-08-27 — La biblioteca quedaba vacía para siempre sin una importación inicial
+
+**Contexto:** con el arranque ya funcionando de punta a punta, la ventana mostraba
+la biblioteca vacía pese a que el usuario ya tiene juegos de Steam instalados desde
+antes de abrir Y-CORE por primera vez.
+
+**Error:** `main/bootstrap/steam-watcher.ts` solo llamaba a
+`steamService.importLibrary()` **dentro** del callback del watcher de chokidar, que
+usa `ignoreInitial: true` (por diseño: solo reacciona a cambios *futuros* en los
+`.acf`). Sin una importación explícita al arrancar, la DB nunca se poblaba hasta la
+primera instalación o desinstalación hecha con Y-CORE abierto.
+
+**Causa:** al escribir el watcher (Fase 3) se asumió implícitamente que "vigilar +
+reaccionar a cambios" era suficiente, sin cubrir el caso base de "todavía no hay
+nada en la DB y el usuario ya tenía juegos instalados".
+
+**Solución:** `startSteamWatcher()` ahora llama a `steamService.importLibrary()` una
+vez, de forma síncrona respecto al bootstrap, antes de arrancar el watcher reactivo.
+Verificado con un arranque real: log `importación inicial de la biblioteca
+completada {"juegos":6}` con los 6 juegos reales de Steam de esta máquina.
+
+**Cómo evitarlo:** cuando una feature combina "estado inicial" + "reacciona a
+cambios" (aplica también a settings, descargas pendientes al reiniciar, etc.),
+tratar ambos como requisitos separados y explícitos — un watcher con
+`ignoreInitial: true` nunca cubre el estado inicial por sí solo, hay que sembrarlo
+aparte. Ningún test de integración cubría el bootstrap completo (`main/index.ts`),
+así que este bug solo se hizo visible al usar la app real, no en `pnpm test`.
+
+## 2026-08-27 — Los scripts de rebuild nativo podían guardar un binding equivocado como "el de Node"
+
+**Contexto:** al recompilar `better-sqlite3` para Electron dos veces seguidas sin
+restaurar el binding de Node entre medias, `pnpm test` empezó a fallar en 26
+archivos con `NODE_MODULE_VERSION mismatch`.
+
+**Error:** `rebuild-native-for-electron.mjs` guardaba `build/Release/node-abi.node`
+copiando lo que hubiera activo en `better_sqlite3.node` con la única condición de
+que `node-abi.node` no existiera todavía — pero si el binding activo ya era el de
+Electron (de una corrida anterior sin restaurar), lo guardaba igual como si fuera
+el de Node, dejando el paquete sin ningún binding de Node válido.
+
+**Causa:** la condición `existsSync(ACTIVE_PATH) && !existsSync(NODE_BINDING)`
+comprueba que el archivo *existe*, no que *carga bajo Node* — un supuesto
+razonable la primera vez que se usa el script en una instalación fresca, pero falso
+en cualquier secuencia de comandos que no siga el orden feliz esperado.
+
+**Solución:** ambos scripts (`rebuild-native-for-electron.mjs` y
+`rebuild-native-for-node.mjs`) ahora verifican de verdad, con un `require()` real en
+un proceso hijo de Node, que el binding que están a punto de guardar/asumir como
+válido carga sin error — no solo que el archivo existe.
+
+**Cómo evitarlo:** cuando un script de intercambio de binarios nativos decide algo
+en base a "existe o no existe un archivo", preguntarse si ese archivo podría existir
+pero ser el equivocado — verificar la propiedad real que importa (aquí, "carga bajo
+este runtime"), no un proxy indirecto de esa propiedad (aquí, "existe con este
+nombre").

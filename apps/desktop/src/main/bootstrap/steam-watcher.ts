@@ -7,6 +7,12 @@
  * (`main/bootstrap/database.ts`). Separado de `main/index.ts` para que el
  * punto de entrada no crezca por cada feature que necesite un watcher.
  *
+ * Hace una importación inicial antes de arrancar el watcher: este solo
+ * reacciona a cambios *futuros* en disco (`ignoreInitial: true`), así que sin
+ * esta llamada la biblioteca quedaría vacía hasta la primera instalación o
+ * desinstalación hecha con Y-CORE abierto, aunque el usuario ya tenga juegos
+ * instalados desde antes.
+ *
  * @param db - Conexión de Drizzle ya migrada, para que el watcher pueda
  *   guardar lo que encuentre vía `LibraryRepository`.
  */
@@ -21,6 +27,13 @@ const log = createLogger('main:bootstrap:steam-watcher');
 
 export async function startSteamWatcher(db: YCoreDatabase): Promise<void> {
   const steamService = new SteamService(new LibraryRepository(db));
+
+  const initialImport = await steamService.importLibrary();
+  if (initialImport.ok === false) {
+    log.warn('importación inicial de la biblioteca falló', { code: initialImport.error.code });
+  } else {
+    log.info('importación inicial de la biblioteca completada', { juegos: initialImport.value.gamesFound });
+  }
 
   const stop = await startSteamLibraryWatcher(async () => {
     const result = await steamService.importLibrary();
