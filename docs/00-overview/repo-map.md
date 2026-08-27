@@ -119,7 +119,7 @@ Decisiones de estilo (a propósito distintas de cualquier referencia externa):
 | `packages/ipc-contract` | El corazón (ADR-0002): mapa de canales IPC con Zod input/output, `.describe()` obligatorio verificado en runtime. | Implementado, con tests, cobertura 100%. Canales `app.ping`, `library.list`, `library.launch`, `steam.importLibrary`, `downloads.enqueue`/`list`/`pause`/`cancel`. |
 | `packages/core-domain` | `Game`, `Installation`, `resolveLaunchCommand`, y (Fase 4, ADR-0004) `transition`/`ALLOWED_TRANSITIONS`, `ProgressThrottle`, `TokenBucket` — tipos y reglas puras, cero Electron/`node:fs`. | Implementado, con tests, cobertura 100%. Usado por `main/features/library` y `main/features/downloads`. |
 | `packages/steam-kit` | Parsers puros de VDF/ACF: `parseVdf`, `parseLibraryFolders`, `parseAppManifest`, `parseLoginUsers`, `parseDepotKeys`. | Implementado (Fase 3), 40 tests, cobertura ~98%. Recibe contenido ya leído, cero Electron/`node:fs`. |
-| `packages/update-contract` | Schemas Zod compartidos por `services/update-worker` y `packages/updater-client` (ADR-0005): `CheckRequestSchema`/`CheckResponseSchema`, `ManifestSchema`, `AdminMaintenanceSchema`/`AdminReleaseSchema`. | Implementado (Fase 5), 23 tests, cobertura 100%. Cero dependencias más allá de `zod` — no depende de `ipc-contract` ni de `result`. |
+| `packages/update-contract` | Schemas Zod compartidos por `services/update-worker` y `packages/updater-client` (ADR-0005): `CheckRequestSchema`/`CheckResponseSchema`, `ManifestSchema`, `AdminMaintenanceSchema`/`AdminReleaseSchema`/`AdminYankSchema`/`AdminRolloutSchema`/`AdminBlockSchema`. | Implementado (Fase 5), 30 tests, cobertura 100%. Cero dependencias más allá de `zod` — no depende de `ipc-contract` ni de `result`. |
 | `packages/updater-client` | Cliente de actualizaciones (ADR-0003/ADR-0005) para el main process: `checkForUpdate` (silencio total ante cualquier fallo), `signCheckRequest` (HMAC-SHA256), `verifyManifestSignature` (Ed25519, acepta rotación de claves), `verifyArtifactSha512`. | Implementado (Fase 5), 18 tests, ~98% cobertura. Depende solo de `update-contract` y `result`. |
 
 Las demás carpetas de `packages/` que aparecen en el roadmap (`ui-kit`, `i18n`) todavía no
@@ -134,18 +134,20 @@ desplegable, falta `tools/cli` y la verificación con cuenta real:
 services/update-worker/
 ├── wrangler.jsonc          bindings: KV CONFIG, D1 DB, R2 RELEASES
 ├── vitest.config.ts         cloudflareTest (plugin de Vite): tests en workerd real, sin cuenta
-├── migrations/0001_initial.sql   releases, maintenance_log, check_stats (SQL crudo)
+├── migrations/
+│   ├── 0001_initial.sql        releases, maintenance_log, check_stats (SQL crudo)
+│   └── 0002_admin_actions_log.sql  admin_actions_log: auditoría de yank/rollout/block
 └── src/
     ├── index.ts              ÚNICO export default { fetch } + tabla de rutas
     ├── env.ts                WorkerEnv: bindings generados + secrets
     ├── domain/               PURO — rollout.ts, decide.ts, signed-url.ts, config.ts, release-record.ts
-    ├── data/                 KV/D1/R2 real — config-kv, releases-d1, stats-d1, maintenance-log-d1, downloads-r2
+    ├── data/                 KV/D1/R2 real — config-kv, releases-d1, stats-d1, maintenance-log-d1, admin-actions-log-d1, downloads-r2
     ├── http/                 responses.ts, auth.ts
-    └── routes/               check.ts, download.ts, admin/{maintenance,release,stats}.ts
+    └── routes/               check.ts, download.ts, admin/{maintenance,release,yank,rollout,block,stats}.ts
 ```
 
-Documentación en `docs/03-services/update-worker/`. 73 tests contra `workerd` real,
-~90% de cobertura.
+Documentación en `docs/03-services/update-worker/`. 86 tests contra `workerd` real,
+~89% de cobertura global (≥98% en `domain/`).
 
 ## `tools/`
 

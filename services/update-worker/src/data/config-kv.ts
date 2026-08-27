@@ -78,3 +78,65 @@ export async function writeMaintenanceFlag(
   }
   return ok(undefined);
 }
+
+/**
+ * Cambia el porcentaje de rollout de un canal ya existente, sin publicar una release nueva.
+ *
+ * @param kv - El binding de KV.
+ * @param channel - Canal cuyo rollout se cambia.
+ * @param rollout - Nuevo porcentaje (0-100).
+ * @returns `ok(undefined)` si se escribió, o `AppError` `not-found` si el
+ *   canal no existe todavía en `YCORE_CONFIG` (hay que publicar una release
+ *   primero), o el error de leer/escribir KV.
+ */
+export async function writeChannelRollout(kv: KVNamespace, channel: string, rollout: number): Promise<Result<void, AppError>> {
+  const current = await readYCoreConfig(kv);
+  if (current.ok === false) return current;
+
+  const channelConfig = current.value.channels[channel];
+  if (channelConfig === undefined) return err(appError('not-found', { context: { channel } }));
+
+  const next: YCoreConfig = {
+    ...current.value,
+    channels: { ...current.value.channels, [channel]: { ...channelConfig, rollout } },
+  };
+
+  try {
+    await kv.put(CONFIG_KEY, JSON.stringify(next));
+  } catch (error) {
+    return err({ ...fromUnknown(error), code: 'io.failed' });
+  }
+  return ok(undefined);
+}
+
+/**
+ * Añade o actualiza una entrada de `blocked` (kill-switch): el cliente en esa
+ * versión recibirá `status: "blocked"` en `/v1/check` (ADR-0005, punto 5).
+ *
+ * @param kv - El binding de KV.
+ * @param version - Versión a bloquear.
+ * @param reason - Motivo del bloqueo, para el cliente y la auditoría.
+ * @param forceTo - Versión a la que se fuerza la actualización.
+ * @returns `ok(undefined)` si se escribió, o el `AppError` de leer/escribir KV.
+ */
+export async function writeBlockedVersion(
+  kv: KVNamespace,
+  version: string,
+  reason: string,
+  forceTo: string,
+): Promise<Result<void, AppError>> {
+  const current = await readYCoreConfig(kv);
+  if (current.ok === false) return current;
+
+  const next: YCoreConfig = {
+    ...current.value,
+    blocked: { ...current.value.blocked, [version]: { reason, forceTo } },
+  };
+
+  try {
+    await kv.put(CONFIG_KEY, JSON.stringify(next));
+  } catch (error) {
+    return err({ ...fromUnknown(error), code: 'io.failed' });
+  }
+  return ok(undefined);
+}

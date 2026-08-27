@@ -32,5 +32,32 @@ export const AdminReleaseSchema = z
   })
   .describe('Body de POST /v1/admin/release — el manifest ya fue subido a R2 firmado por CI.');
 
+export const AdminYankSchema = z
+  .object({
+    version: z.string().describe('Versión a retirar: deja de ofrecerse en /v1/check, sin borrar el historial.'),
+    actor: z.string().describe('Quién hizo el cambio (usuario o proceso de CI).'),
+  })
+  .describe('Body de POST /v1/admin/yank.');
+
+export const AdminRolloutSchema = z
+  .object({
+    channel: z.enum(['stable', 'beta']).describe('Canal cuyo rollout se cambia.'),
+    rollout: z.number().int().min(0).max(100).describe('Nuevo porcentaje de rollout (0-100) para el latest del canal.'),
+    actor: z.string().describe('Quién hizo el cambio (usuario o proceso de CI).'),
+  })
+  .describe('Body de POST /v1/admin/rollout — no publica una release nueva, solo ajusta el porcentaje.');
+
+export const AdminBlockSchema = z
+  .object({
+    version: z.string().describe('Versión a bloquear (kill-switch): el cliente recibe status "blocked".'),
+    reason: z.string().describe('Motivo del bloqueo, se muestra en la auditoría.'),
+    forceTo: z.string().describe('Versión a la que se fuerza la actualización del cliente bloqueado.'),
+    actor: z.string().describe('Quién hizo el cambio (usuario o proceso de CI).'),
+  })
+  .describe('Body de POST /v1/admin/block.');
+
 export type AdminMaintenanceInput = z.infer<typeof AdminMaintenanceSchema>;
 export type AdminReleaseInput = z.infer<typeof AdminReleaseSchema>;
+export type AdminYankInput = z.infer<typeof AdminYankSchema>;
+export type AdminRolloutInput = z.infer<typeof AdminRolloutSchema>;
+export type AdminBlockInput = z.infer<typeof AdminBlockSchema>;

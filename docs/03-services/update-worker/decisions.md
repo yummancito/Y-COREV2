@@ -35,6 +35,19 @@ request. `fetchReleaseObject` devuelve `requestedRange` (el rango que el propio
 `fetchReleaseObject` calculó a partir de la cabecera `Range` del cliente), no lo que R2
 reporta internamente — esa es la señal correcta para el código de estado HTTP.
 
+## `yank`/`rollout`/`block` comparten una tabla de auditoría genérica
+
+El ADR-0005 (punto 5) dice que la CLI `ycore` cubre cinco operaciones admin: `rollout`,
+`yank`, `block`, `maintenance` y `stats`. `maintenance` ya tenía su propia
+`maintenance_log` desde la migración `0001` (necesita columnas específicas: `enabled`).
+Para las otras tres, en vez de crear tres tablas casi idénticas de una sola columna de
+detalle, la migración `0002_admin_actions_log.sql` añade `admin_actions_log`
+(`action`, `version`, `channel`, `actor`, `detail`, `at`) — una fila por acción, con los
+campos que no aplican a null. Es la misma idea que "una tabla `downloads` con distintos
+estados" en vez de una tabla por estado (ADR-0004): la auditoría de acciones admin es
+por naturaleza heterogénea en qué campo importa, y una tabla genérica evita tres
+esquemas casi duplicados por una diferencia de una columna.
+
 ## El estado de KV/D1/R2 no se aísla automáticamente entre tests del mismo archivo
 
 La versión instalada de `@cloudflare/vitest-pool-workers` (0.22.0) no tiene ningún campo

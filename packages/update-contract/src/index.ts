@@ -15,7 +15,7 @@
  */
 
 import { assertSchemaIsDescribed } from './assert-described.js';
-import { AdminMaintenanceSchema, AdminReleaseSchema } from './admin.js';
+import { AdminMaintenanceSchema, AdminReleaseSchema, AdminYankSchema, AdminRolloutSchema, AdminBlockSchema } from './admin.js';
 import { CheckRequestSchema, CheckResponseSchema } from './check.js';
 import { ManifestSchema } from './manifest.js';
 
@@ -24,12 +24,21 @@ assertSchemaIsDescribed('CheckResponseSchema', CheckResponseSchema);
 assertSchemaIsDescribed('ManifestSchema', ManifestSchema);
 assertSchemaIsDescribed('AdminMaintenanceSchema', AdminMaintenanceSchema);
 assertSchemaIsDescribed('AdminReleaseSchema', AdminReleaseSchema);
+assertSchemaIsDescribed('AdminYankSchema', AdminYankSchema);
+assertSchemaIsDescribed('AdminRolloutSchema', AdminRolloutSchema);
+assertSchemaIsDescribed('AdminBlockSchema', AdminBlockSchema);
 
 export { CheckRequestSchema, CheckResponseSchema, type CheckRequest, type CheckResponse } from './check.js';
 export { ManifestSchema, type Manifest } from './manifest.js';
 export {
   AdminMaintenanceSchema,
   AdminReleaseSchema,
+  AdminYankSchema,
+  AdminRolloutSchema,
+  AdminBlockSchema,
   type AdminMaintenanceInput,
   type AdminReleaseInput,
+  type AdminYankInput,
+  type AdminRolloutInput,
+  type AdminBlockInput,
 } from './admin.js';
