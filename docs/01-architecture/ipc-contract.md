@@ -115,6 +115,36 @@ La biblioteca completa.
 
   - `games: array` — Todos los juegos conocidos.
 
+## Namespace `settings.*`
+
+### `settings.get`
+
+Sin filtros: devuelve los settings actuales, ya migrados a la versión de esquema vigente.
+
+**Input:**
+
+  (sin campos)
+
+**Output:**
+
+Los settings actuales.
+
+  - `settings: object` — La configuración completa editable por el usuario.
+
+### `settings.update`
+
+Los campos a cambiar — cualquier campo omitido conserva su valor actual.
+
+**Input:**
+
+  - `settings: object`
+
+**Output:**
+
+Los settings ya actualizados y persistidos.
+
+  - `settings: object` — La configuración completa editable por el usuario.
+
 ## Namespace `steam.*`
 
 ### `steam.importLibrary`

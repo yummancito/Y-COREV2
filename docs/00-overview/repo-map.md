@@ -13,7 +13,7 @@ abre un issue para corregir este archivo.
 
 | Carpeta | Qué es | Estado |
 |---|---|---|
-| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 2: feature Biblioteca completa (main + renderer). Fase 3 completa: feature Steam. Fase 4 completa: motor de descargas (ADR-0004), main + renderer. Fase 5: feature Actualizaciones (ADR-0003/ADR-0005), main + renderer, ciclo completo salvo diferencial por blockmap. |
+| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 2: feature Biblioteca completa (main + renderer). Fase 3 completa: feature Steam. Fase 4 completa: motor de descargas (ADR-0004), main + renderer. Fase 5: feature Actualizaciones (ADR-0003/ADR-0005), main + renderer, ciclo completo salvo diferencial por blockmap. Fase 6 en curso: feature Ajustes (settings tipados con Zod y migración de esquema), main + renderer. |
 | `apps/web-landing` | Landing estática "próximamente", en Astro. Se despliega en Cloudflare Pages. | Contenido inicial hecho — ver `docs/00-overview/repo-map.md#apps-web-landing`. |
 
 ### `apps/desktop`
@@ -60,6 +60,10 @@ apps/desktop/
 │   ├── download.ts                 downloadToFile/downloadJson: I/O de red sin reanudación
 │   ├── service.ts                  UpdateService: checkForUpdate -> descarga -> verificación
 │   └── handlers.ts                 traduce dominio ↔ forma exacta del contrato IPC
+├── src/main/features/settings/   Fase 6: ajustes editables por el usuario
+│   ├── repository.ts               tabla `settings` (clave "appSettings", JSON) ↔ AppSettings
+│   ├── service.ts                  fusiona un parche parcial con lo ya guardado
+│   └── handlers.ts                 traduce dominio ↔ forma exacta del contrato IPC
 ├── src/main/platform/
 │   ├── process-launcher.ts        único lugar que hace spawn() real (lanzar juegos)
 │   ├── installer-launcher.ts      único lugar que lanza el instalador NSIS (flag /S)
@@ -76,6 +80,9 @@ apps/desktop/
 ├── src/renderer/features/updates/    lado renderer de actualizaciones
 │   ├── hooks/                          useUpdateStatusQuery (polling), useInstallUpdate
 │   └── components/                     UpdateBanner (único componente)
+├── src/renderer/features/settings/   lado renderer de ajustes
+│   ├── hooks/                          useSettingsQuery (sin polling), useUpdateSettings
+│   └── components/                     SettingsPanel (único componente)
 ├── tools/
 │   ├── rebuild-native-for-electron.mjs   recompila better-sqlite3 para la ABI de Electron
 │   └── rebuild-native-for-node.mjs       restaura el binding de Node (para los tests)
@@ -85,7 +92,7 @@ apps/desktop/
 Documentación de la feature Biblioteca en `docs/02-features/library/`, de la feature
 Steam en `docs/02-features/steam/`, de la feature Descargas en
 `docs/02-features/downloads/`, de la feature Actualizaciones en
-`docs/02-features/updates/`.
+`docs/02-features/updates/`, de la feature Ajustes en `docs/02-features/settings/`.
 
 **better-sqlite3 y ABI nativa**: el binding compilado no puede ser el mismo para
 `pnpm test` (corre bajo Node) y `pnpm dev`/`pnpm build` (corren bajo Electron, ABI
@@ -129,7 +136,7 @@ Decisiones de estilo (a propósito distintas de cualquier referencia externa):
 | `packages/tsconfig` | `tsconfig` base compartido por todo el monorepo. | Implementado. |
 | `packages/eslint-config` | ESLint 9 flat config compartida: límites de tamaño (B.2), boundaries (B.3), no-any y no-raw-ipc (B.1/B.6). | Implementado. |
 | `packages/ipc-contract` | El corazón (ADR-0002): mapa de canales IPC con Zod input/output, `.describe()` obligatorio verificado en runtime. | Implementado, con tests, cobertura 100%. Canales `app.ping`, `library.list`, `library.launch`, `steam.importLibrary`, `downloads.enqueue`/`list`/`pause`/`cancel`. |
-| `packages/core-domain` | `Game`, `Installation`, `resolveLaunchCommand`, y (Fase 4, ADR-0004) `transition`/`ALLOWED_TRANSITIONS`, `ProgressThrottle`, `TokenBucket` — tipos y reglas puras, cero Electron/`node:fs`. | Implementado, con tests, cobertura 100%. Usado por `main/features/library` y `main/features/downloads`. |
+| `packages/core-domain` | `Game`, `Installation`, `resolveLaunchCommand`, y (Fase 4, ADR-0004) `transition`/`ALLOWED_TRANSITIONS`, `ProgressThrottle`, `TokenBucket`, y (Fase 6) `AppSettings`/`migrateSettings` — tipos y reglas puras, cero Electron/`node:fs`. | Implementado, con tests, cobertura 100%. Usado por `main/features/library`, `main/features/downloads` y `main/features/settings`. |
 | `packages/steam-kit` | Parsers puros de VDF/ACF: `parseVdf`, `parseLibraryFolders`, `parseAppManifest`, `parseLoginUsers`, `parseDepotKeys`. | Implementado (Fase 3), 40 tests, cobertura ~98%. Recibe contenido ya leído, cero Electron/`node:fs`. |
 | `packages/update-contract` | Schemas Zod compartidos por `services/update-worker` y `packages/updater-client` (ADR-0005): `CheckRequestSchema`/`CheckResponseSchema`, `ManifestSchema`, `AdminMaintenanceSchema`/`AdminReleaseSchema`/`AdminYankSchema`/`AdminRolloutSchema`/`AdminBlockSchema`. | Implementado (Fase 5), 30 tests, cobertura 100%. Cero dependencias más allá de `zod` — no depende de `ipc-contract` ni de `result`. |
 | `packages/updater-client` | Cliente de actualizaciones (ADR-0003/ADR-0005) para el main process: `checkForUpdate` (silencio total ante cualquier fallo), `signCheckRequest` (HMAC-SHA256), `verifyManifestSignature` (Ed25519, acepta rotación de claves), `verifyArtifactSha512`. | Implementado (Fase 5), 18 tests, ~98% cobertura. Depende solo de `update-contract` y `result`. |

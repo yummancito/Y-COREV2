@@ -1,15 +1,17 @@
 /**
- * `App` — pantalla raíz. Monta las features reales hasta ahora (Biblioteca y Descargas).
+ * `App` — pantalla raíz. Monta las features reales hasta ahora (Biblioteca,
+ * Descargas y Ajustes).
  *
- * Sin router todavía: ambas secciones se muestran juntas en una sola
+ * Sin router todavía: todas las secciones se muestran juntas en una sola
  * pantalla en vez de rutas separadas. TanStack Router se añade cuando el
  * número de secciones haga falta navegación real (decisión local, no vale
- * la pena la infraestructura de rutas para dos bloques en la misma pantalla).
+ * la pena la infraestructura de rutas para tres bloques en la misma pantalla).
  */
 
 import { DownloadsList } from './features/downloads/index.js';
 import { LibraryGrid } from './features/library/index.js';
 import { UpdateBanner } from './features/updates/index.js';
+import { SettingsPanel } from './features/settings/index.js';
 
 export function App(): React.JSX.Element {
   return (
@@ -19,6 +21,7 @@ export function App(): React.JSX.Element {
       <LibraryGrid />
       <h2>Descargas</h2>
       <DownloadsList />
+      <SettingsPanel />
     </main>
   );
 }

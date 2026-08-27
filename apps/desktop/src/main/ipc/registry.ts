@@ -20,6 +20,7 @@ import { createLibraryHandlers, LibraryRepository, LibraryService } from '../fea
 import { createSteamHandlers, SteamService } from '../features/steam/index.js';
 import { createDownloadHandlers, DownloadRepository, DownloadService } from '../features/downloads/index.js';
 import { createUpdateHandlers, type UpdateService } from '../features/updates/index.js';
+import { createSettingsHandlers, SettingsRepository, SettingsService } from '../features/settings/index.js';
 
 /**
  * Firma de un handler para el canal `C`: recibe input ya validado, nunca lanza.
@@ -55,6 +56,7 @@ export function buildRegistry(db: YCoreDatabase, updateService: UpdateService, o
   const steam = createSteamHandlers(new SteamService(libraryRepository));
   const downloads = createDownloadHandlers(new DownloadService(new DownloadRepository(db)));
   const updates = createUpdateHandlers(updateService, onBeforeQuitToInstall);
+  const settingsFeature = createSettingsHandlers(new SettingsService(new SettingsRepository(db)));
 
   return {
     'app.ping': handleAppPing,
@@ -67,5 +69,7 @@ export function buildRegistry(db: YCoreDatabase, updateService: UpdateService, o
     'downloads.cancel': downloads.cancel,
     'updates.getStatus': updates.getStatus,
     'updates.installNow': updates.installNow,
+    'settings.get': settingsFeature.get,
+    'settings.update': settingsFeature.update,
   };
 }

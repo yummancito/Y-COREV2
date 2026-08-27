@@ -35,3 +35,11 @@ export {
 export { ProgressThrottle, type ProgressSample } from './progress-throttle.js';
 
 export { TokenBucket } from './token-bucket.js';
+
+export {
+  migrateSettings,
+  DEFAULT_APP_SETTINGS,
+  SETTINGS_SCHEMA_VERSION,
+  type AppSettings,
+  type UpdateChannel,
+} from './app-settings.js';
