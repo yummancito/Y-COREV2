@@ -153,8 +153,8 @@ Documentación en `docs/03-services/update-worker/`. 86 tests contra `workerd` r
 
 | Carpeta | Qué es |
 |---|---|
-| `tools/scripts` | Checkers en Node puro que hacen cumplir las reglas de `.claude/CLAUDE.md`: `check-file-rules.mjs` (hook de Write/Edit), `check-docs.mjs`, `check-done.mjs` (hook Stop), `check-staged.mjs` (pre-commit). |
-| `tools/cli` | CLI `ycore` para el toggle de mantenimiento y releases. Fase 5. |
+| `tools/scripts` | Checkers en Node puro que hacen cumplir las reglas de `.claude/CLAUDE.md`: `check-file-rules.mjs` (hook de Write/Edit), `check-docs.mjs`, `check-done.mjs` (hook Stop), `check-staged.mjs` (pre-commit), `check-worker-routes.mjs`/`check-no-private-key.mjs` (ADR-0005). |
+| `tools/cli` | CLI `ycore` (Fase 5, ADR-0005): `release`/`maintenance`/`yank`/`rollout`/`block`/`stats` contra `services/update-worker`. Nunca firma nada. Implementado, 36 tests, ~99% cobertura. |
 
 ## Raíz
 

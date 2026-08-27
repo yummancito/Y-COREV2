@@ -22,6 +22,9 @@
     },
     "services/update-worker": {
       "project": ["src/**/*.ts"]
+    },
+    "tools/cli": {
+      "project": ["src/**/*.ts"]
     }
   },
   "ignoreDependencies": [

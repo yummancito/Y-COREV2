@@ -22,6 +22,7 @@ const SCOPES_EXISTENTES = [
   'update-contract',
   'update-worker',
   'updater-client',
+  'cli',
   // infraestructura del propio repo (sin código de producto)
   'repo',
   'docs',

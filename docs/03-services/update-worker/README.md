@@ -88,7 +88,31 @@ servicio, y corren en `pnpm check:all` y en el hook de pre-commit:
   `SIGNING_KEY` bajo `services/` o en `wrangler.jsonc` — la clave Ed25519 se firma
   siempre en CI, nunca aquí (ADR-0005, punto 5).
 
-**Todavía no existe**: `tools/cli` (el CLI `ycore` que llama a los endpoints admin), el
-pipeline de CI que firma el manifest y publica releases, y la verificación end-to-end
-con una cuenta real de Cloudflare (`wrangler deploy`, DNS, e2e con binarios — ver
-`docs/05-operations/release-process.md`).
+`tools/cli` (el CLI `ycore`) ya implementa los seis comandos admin contra este Worker —
+ver su propia sección más abajo.
+
+**Todavía no existe**: el pipeline de CI que firma el manifest y publica releases, y la
+verificación end-to-end con una cuenta real de Cloudflare (`wrangler deploy`, DNS, e2e
+con binarios — ver `docs/05-operations/release-process.md`).
+
+## CLI `ycore` (`tools/cli`)
+
+Seis comandos, todos leyendo `YCORE_WORKER_URL` y `YCORE_ADMIN_TOKEN` del entorno:
+
+```
+pnpm --filter @ycore/cli ycore release --version 5.1.0 --channel stable --rollout 10 \
+  --r2-key releases/5.1.0/Setup.exe --size 98123456 --sha512 <hex> \
+  --notes-es "..." --notes-en "..." [--blockmap-key ... --blockmap-sha512 ... --mandatory]
+
+pnpm --filter @ycore/cli ycore maintenance --on|--off --note "..." --actor yummancito
+pnpm --filter @ycore/cli ycore yank --version 5.0.9 --actor yummancito
+pnpm --filter @ycore/cli ycore rollout --channel stable --rollout 50 --actor yummancito
+pnpm --filter @ycore/cli ycore block --version 5.0.9 --reason "..." --force-to 5.1.0 --actor yummancito
+pnpm --filter @ycore/cli ycore stats [--days 7]
+```
+
+**La CLI nunca firma nada** (ADR-0005, punto 5): `release` registra en el Worker un
+instalador que el pipeline de CI ya subió a R2 con el manifest ya firmado con Ed25519.
+No hay forma de publicar una release firmada solo desde un portátil — es intencional.
+Parseo de flags a mano (sin commander/yargs): son seis subcomandos fijos, el mismo
+criterio con el que el ADR-0005 descartó un framework de routing para el Worker.

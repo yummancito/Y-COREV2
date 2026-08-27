@@ -27,6 +27,7 @@ export const boundariesSettings = {
     { type: 'update-contract', pattern: 'packages/update-contract/**' },
     { type: 'updater-client', pattern: 'packages/updater-client/**' },
     { type: 'update-worker', pattern: 'services/update-worker/**' },
+    { type: 'cli', pattern: 'tools/cli/**' },
   ],
 };
 
@@ -72,6 +73,13 @@ export const rulesDeBoundaries = {
         },
         { from: 'updater-client', allow: ['update-contract', 'result'] },
         { from: 'update-worker', allow: ['update-contract', 'result'] },
+        {
+          from: 'cli',
+          allow: ['update-contract'],
+          message:
+            'tools/cli habla HTTP con el Worker (fetch), no importa result ni ningún otro ' +
+            'paquete del producto — solo los schemas Zod compartidos para validar payloads.',
+        },
       ],
     },
   ],
