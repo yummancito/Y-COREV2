@@ -17,6 +17,6 @@ import { defaultDbPath, openDatabase, type YCoreDatabase } from '../db/index.js'
  */
 export function openAppDatabase(): YCoreDatabase {
   const dbPath = defaultDbPath(app.getPath('userData'));
-  const migrationsFolder = join(__dirname, '../db/migrations');
+  const migrationsFolder = join(__dirname, 'db/migrations');
   return openDatabase(dbPath, migrationsFolder);
 }

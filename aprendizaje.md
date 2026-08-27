@@ -925,31 +925,132 @@ Más en general: `pnpm build`/`pnpm test` no sustituyen un lanzamiento real de l
 — hay clases de bug (externalización de dependencias, bundling) que solo aparecen al
 arrancar el binario empaquetado de verdad.
 
-## 2026-08-27 — No se pudo verificar visualmente el arranque de la app en este entorno
+## 2026-08-27 — Diagnóstico inicial equivocado: no era el entorno sandboxed
 
 **Contexto:** tras arreglar el bug de `steam-kit`, se intentó confirmar que la
-ventana de Y-CORE abre de verdad (`pnpm dev`).
+ventana de Y-CORE abre de verdad (`pnpm dev`). El proceso `electron.exe` terminaba
+de forma consistente e inmediata con `crashpad_client_win.cc(868)] not connected`
+antes de ejecutar cualquier código JS del main.
 
-**Resultado:** el proceso `electron.exe` termina de forma consistente e inmediata con
-`crashpad_client_win.cc(868)] not connected` **antes** de ejecutar cualquier código
-JS del main (no llega a loguear `main:bootstrap`, no crea el directorio `userData`),
-en todos los intentos probados: `pnpm dev` normal, con `ELECTRON_RUN_AS_NODE`
-desactivada (estaba activa por defecto en el entorno de la sesión y causaba un fallo
-distinto y real: `electron.app` undefined), invocando el `.exe` directo con
-`--no-sandbox`/`--disable-gpu`, y desde PowerShell nativo con acceso a la sesión de
-consola activa (`query session` confirmó una sesión `>console` activa, no una máquina
-headless).
+**Diagnóstico registrado en su momento (INCORRECTO):** se concluyó que era una
+limitación del entorno sandboxed de la sesión del agente (falta de estación de
+ventanas interactiva), no un bug real. Esta conclusión era falsa — el usuario
+reprodujo el mismo colgado en su propia sesión interactiva real, lo que la
+descartó. Ver la entrada siguiente (mismo día) para la causa real y la corrección.
 
-**Diagnóstico:** es una limitación del entorno de ejecución sandboxed de esta sesión
-(el proceso del agente no hereda el mismo contexto de estación de ventanas
-interactiva — `WinSta0\Default` — que un usuario lanzando la app manualmente desde
-su propia sesión), no un bug del código de Y-CORE. El build compila limpio, el
-bundle es correcto, y el único bug real encontrado en el camino (`steam-kit` sin
-externalizar) ya se corrigió.
+**Cómo evitarlo:** no cerrar un diagnóstico de "es el entorno" solo porque las
+hipótesis obvias (Defender, Code Integrity, GPU/sandbox de Chromium, proxy,
+Mark-of-the-Web) no explican el síntoma. Aislar con un script mínimo de Electron
+sin ninguna dependencia nativa propia (`app.whenReady()` + `BrowserWindow` a secas)
+antes de asumir que el entorno es el problema — si ese mínimo funciona, el bug está
+en el código/dependencias de la app, no en el sistema.
 
-**Cómo evitarlo/verificarlo de verdad:** este tipo de fallo solo se puede confirmar o
-descartar lanzando `pnpm --filter @ycore/desktop dev` desde una sesión interactiva
-real del usuario (doble clic, terminal abierta directamente en su escritorio), no
-desde herramientas de automatización que ejecutan procesos en un contexto de sesión
-distinto. Documentado aquí para no repetir el mismo diagnóstico exhaustivo si vuelve
-a aparecer el mismo síntoma.
+## 2026-08-27 — Causa real: `better-sqlite3@13.0.3` segfaultea dentro de Electron 33
+
+**Contexto:** con Defender, Code Integrity/WDAC, Smart App Control, GPU/sandbox de
+Chromium y proxy ya descartados como causa (sin evidencia real de bloqueo en los
+logs de Windows), se aisló el arranque paso a paso instrumentando el bundle
+compilado con logs en cada etapa de `main/index.ts`. El bloqueo ocurría siempre
+exactamente en `openAppDatabase()` → `new Database(dbPath)` — nunca antes, nunca
+después. Una app mínima de Electron sin ningún código propio (solo
+`app.whenReady()` + `BrowserWindow`) abría ventana sin problema en la misma
+máquina, lo que confirmó que Electron en sí funcionaba y el bug estaba en una
+dependencia nuestra.
+
+**Error:** `new Database(':memory:')` (el constructor síncrono de `better-sqlite3`)
+provoca un **segmentation fault** real del proceso nativo cuando corre embebido en
+el runtime de Node de Electron 33 — no lanza ninguna excepción de JS capturable, no
+genera ninguna entrada en Application/WER de Windows, y el proceso simplemente
+termina. Bajo Node puro (fuera de Electron) el mismo binario cargaba perfecto.
+
+**Causa:** `better-sqlite3@13.0.3` (publicado 2026-08-05, hace solo 3 semanas) es la
+**primera versión de la librería migrada de NAN a N-API** — una reescritura completa
+del binding nativo en C++. Se probó exhaustivamente que no era un problema de
+compilación de esta máquina: el mismo segfault ocurrió (a) con el prebuild original,
+(b) tras recompilar con `electron-rebuild` con MSVC (`cl.exe`/`link.exe` reales de
+Visual Studio 2022 Build Tools, cargados vía `vcvars64.bat` — el intento anterior sin
+esto no fallaba por eso, simplemente producía un binding igual de roto en silencio),
+y (c) tras recompilar a mano con `node-gyp rebuild --runtime=electron
+--dist-url=https://electronjs.org/headers` replicando exactamente el workaround
+documentado en la comunidad (WiseLibs/better-sqlite3#1044, #1118). Los tres caminos
+dieron el mismo segfault, lo que descarta el toolchain de compilación como causa y
+apunta a un bug real de la versión 13.x de la librería en esta combinación de
+Windows + Electron 33, poco probada por ser tan reciente.
+
+**Solución:** bajar `better-sqlite3` de `^13.0.3` a `^11.10.0` (la última serie
+estable basada en NAN, la misma tecnología madura que usan la mayoría de apps
+Electron en producción) en `apps/desktop/package.json`. Tras el rebuild contra
+Electron con esta versión, `new Database()` funciona sin problema y la app arranca
+completa: DB abierta y migrada, router IPC registrado, watcher de Steam arrancado,
+ventana visible.
+
+**Cómo evitarlo:** no actualizar dependencias nativas (cualquier paquete con un
+binding `.node`) a una versión que acaba de hacer un cambio de mecanismo de binding
+(NAN→N-API, o cualquier "primera versión de la vX" en el changelog) sin probar el
+arranque real de la app empaquetada primero, no solo `pnpm test` (que corre bajo
+Node puro, no bajo Electron, y no habría detectado este bug nunca). Candidato a
+regla futura: fijar (`pin`, sin `^`) la versión de cualquier dependencia con binding
+nativo, y solo subirla tras un lanzamiento real verificado.
+
+## 2026-08-27 — Bug preexistente: ruta de migraciones desalineada con el bundle
+
+**Contexto:** al resolver el bug de `better-sqlite3` de arriba y lograr que
+`openDatabase()` se ejecutara de verdad por primera vez, apareció un segundo error,
+real y distinto: `Error: Can't find meta/_journal.json file`.
+
+**Error:** `main/bootstrap/database.ts` resolvía `migrationsFolder` como
+`join(__dirname, '../db/migrations')`. Ese código se escribió pensando en la
+estructura de **código fuente** (`src/main/bootstrap/` → `../db/migrations` sería
+`src/main/db/migrations`), pero tras el bundle de Vite todo el main process se
+aplana en un único `out/main/index.js`, así que en runtime `__dirname` es
+`out/main` y esa ruta resolvía a `out/db/migrations` (que no existe) en vez de
+`out/main/db/migrations` (donde `copyMigrationsPlugin` sí las copia).
+
+**Causa:** nadie había ejecutado el arranque real de la app hasta hoy — el mismo
+patrón que el bug de `steam-kit` de la entrada anterior: `pnpm build`/`pnpm test`
+no ejercitan este camino, así que la ruta relativa nunca se validó contra la
+estructura real del bundle compilado.
+
+**Solución:** cambiado a `join(__dirname, 'db/migrations')` (sin `..`) en
+`database.ts` y corregido el comentario que lo describía en
+`electron.vite.config.ts`.
+
+**Cómo evitarlo:** cualquier ruta relativa a `__dirname` escrita dentro de
+`src/main/**` debe pensarse en términos de dónde vive `out/main/index.js` (todo el
+main process bundleado, plano, en una sola carpeta), no en términos de la carpeta
+del archivo fuente original — Vite aplana la estructura de carpetas del main al
+compilar. Verificar contra `out/main/` real tras cualquier cambio de ruta relativa
+nueva, no solo contra `src/`.
+
+## 2026-08-27 — El preload con `sandbox: true` no puede `require()` paquetes npm normales
+
+**Contexto:** tras resolver los dos bugs anteriores, la ventana de Y-CORE abrió por
+primera vez, pero el renderer mostraba "Cannot read properties of undefined
+(reading 'library'/'downloads'/'settings')" — `window.ycore` no tenía ninguna de
+sus propiedades esperadas.
+
+**Error:** DevTools del renderer mostró el error real:
+`Unable to load preload script ... Error: module not found: zod`.
+
+**Causa:** con `sandbox: true` (obligatorio por ADR-0002, ver `main/bootstrap/window.ts`),
+el preload corre en un contexto Node aislado donde `require()` solo resuelve lo que
+está bundleado dentro de su propio `out/preload/index.js` — nunca `node_modules`
+del proyecto. `electron.vite.config.ts` solo excluía de la externalización a los
+paquetes del propio workspace (`WORKSPACE_PACKAGES`), pero el preload también
+importa `zod` indirectamente (vía `@ycore/ipc-contract`), y `zod` quedaba como
+`require("zod")` externo — funciona en el main process (que sí tiene acceso a
+`node_modules` completo) pero no en el preload sandboxed.
+
+**Solución:** añadida una lista `PRELOAD_EXTRA_BUNDLED` (= `WORKSPACE_PACKAGES` +
+`'zod'`) usada solo en la config del bundle de `preload` en
+`electron.vite.config.ts`, para que `zod` se bundlee inline igual que los paquetes
+del workspace. El bundle del preload pasó de 12 kB a 149 kB, confirmando que
+`zod` ya viaja dentro del archivo.
+
+**Cómo evitarlo:** cualquier dependencia npm nueva que use `packages/ipc-contract`
+(o cualquier otro paquete importado por el preload) debe revisarse contra la lista
+de exclusión de externalización del **preload**, no solo la del main — son listas
+distintas ahora (`WORKSPACE_PACKAGES` para main, `PRELOAD_EXTRA_BUNDLED` para
+preload) precisamente porque el preload sandboxed tiene una restricción de
+`require()` que el main no tiene. Ninguna prueba de `pnpm test`/`pnpm build`
+detecta esto — solo aparece al abrir DevTools del renderer en un arranque real.

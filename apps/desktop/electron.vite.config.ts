@@ -12,7 +12,7 @@ import react from '@vitejs/plugin-react';
  * Copia `src/main/db/migrations` a `out/main/db/migrations` después de cada
  * build del proceso main. Sirve porque las migraciones son `.sql`/`.json`, no
  * código: Vite no las empaqueta, y `main/bootstrap/database.ts` las busca vía
- * `join(__dirname, '../db/migrations')` relativo al `out/main` de producción.
+ * `join(__dirname, 'db/migrations')` relativo al `out/main` de producción.
  *
  * `vite-plugin-static-copy` se probó primero pero su hook `writeBundle` no
  * dispara con los "SSR environments" que usa electron-vite en Vite 7 (ver
@@ -52,6 +52,16 @@ const WORKSPACE_PACKAGES = [
   '@ycore/updater-client',
 ];
 
+/**
+ * El preload corre con `sandbox: true` (ver `main/bootstrap/window.ts`), así
+ * que su `require()` solo resuelve lo que está bundleado dentro de su propio
+ * `out/preload/index.js` — nunca `node_modules` del proyecto. `zod` debe ir
+ * excluido de la externalización aquí (main sí tiene `node_modules` completo,
+ * así que ahí no hace falta), o el preload falla con
+ * `Error: module not found: zod` y `window.ycore` nunca se expone al renderer.
+ */
+const PRELOAD_EXTRA_BUNDLED = [...WORKSPACE_PACKAGES, 'zod'];
+
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin({ exclude: WORKSPACE_PACKAGES }), copyMigrationsPlugin()],
@@ -62,7 +72,7 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin({ exclude: WORKSPACE_PACKAGES })],
+    plugins: [externalizeDepsPlugin({ exclude: PRELOAD_EXTRA_BUNDLED })],
     build: {
       rollupOptions: {
         input: resolve(__dirname, 'src/preload/index.ts'),

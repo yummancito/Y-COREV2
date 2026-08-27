@@ -28,7 +28,7 @@
     "@ycore/steam-kit": "workspace:*",
     "@ycore/update-contract": "workspace:*",
     "@ycore/updater-client": "workspace:*",
-    "better-sqlite3": "^13.0.3",
+    "better-sqlite3": "^11.10.0",
     "chokidar": "^4.0.3",
     "drizzle-orm": "^0.45.2",
     "yauzl": "^3.4.0",
