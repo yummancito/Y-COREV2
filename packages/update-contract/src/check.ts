@@ -35,6 +35,12 @@ const ArtifactSchema = z
     sha512: z.string().describe('Hash SHA-512 del artefacto completo, en hexadecimal.'),
     url: z.string().describe('URL firmada de /v1/download para el artefacto completo. TTL 15 min.'),
     urlExpiresAt: z.iso.datetime().describe('Cuándo deja de ser válida la URL firmada.'),
+    manifestUrl: z
+      .string()
+      .describe(
+        'URL firmada de /v1/download para el manifest.json firmado con Ed25519 por el pipeline de CI. ' +
+          'El cliente lo descarga y verifica la firma antes de confiar en sha512/size (ADR-0003).',
+      ),
   })
   .describe('El instalador completo de la versión.');
 

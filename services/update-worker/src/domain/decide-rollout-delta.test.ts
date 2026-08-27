@@ -17,6 +17,7 @@ const baseRelease: ReleaseRecord = {
   version: '5.1.0',
   channel: 'stable',
   r2Key: 'releases/5.1.0/Setup.exe',
+  manifestKey: 'releases/5.1.0/manifest.json',
   blockmapKey: null,
   size: 98123456,
   sha512: 'a'.repeat(128),

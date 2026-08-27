@@ -21,6 +21,9 @@ export const AdminReleaseSchema = z
     rollout: z.number().int().min(0).max(100).describe('Porcentaje inicial de rollout (0-100).'),
     r2Key: z.string().describe('Clave del instalador completo dentro del bucket R2.'),
     blockmapKey: z.string().nullable().describe('Clave del .blockmap en R2, o null si no hay diferencial.'),
+    manifestKey: z
+      .string()
+      .describe('Clave del manifest.json ya firmado con Ed25519 en R2 — el pipeline de CI lo sube antes de llamar a este endpoint.'),
     size: z.number().int().positive().describe('Tamaño del instalador completo, en bytes.'),
     sha512: z.string().describe('Hash SHA-512 del instalador completo, en hexadecimal.'),
     blockmapSha512: z.string().nullable().describe('Hash SHA-512 del .blockmap, o null si no hay diferencial.'),

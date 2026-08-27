@@ -13,6 +13,7 @@ const validPayload = {
   rollout: 10,
   r2Key: 'releases/5.1.0/Setup.exe',
   blockmapKey: null,
+  manifestKey: 'releases/5.1.0/manifest.json',
   size: 98123456,
   sha512: 'a'.repeat(128),
   blockmapSha512: null,

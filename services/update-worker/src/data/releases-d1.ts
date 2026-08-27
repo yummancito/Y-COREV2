@@ -18,6 +18,7 @@ const ReleaseRowSchema = z.object({
   channel: z.string(),
   r2_key: z.string(),
   blockmap_key: z.string().nullable(),
+  manifest_key: z.string(),
   size: z.number().int(),
   sha512: z.string(),
   blockmap_sha512: z.string().nullable(),
@@ -34,6 +35,7 @@ function rowToRecord(row: z.infer<typeof ReleaseRowSchema>): ReleaseRecord {
     channel: row.channel,
     r2Key: row.r2_key,
     blockmapKey: row.blockmap_key,
+    manifestKey: row.manifest_key,
     size: row.size,
     sha512: row.sha512,
     blockmapSha512: row.blockmap_sha512,
@@ -74,6 +76,7 @@ export interface InsertReleaseInput {
   readonly channel: string;
   readonly r2Key: string;
   readonly blockmapKey: string | null;
+  readonly manifestKey: string;
   readonly size: number;
   readonly sha512: string;
   readonly blockmapSha512: string | null;
@@ -89,14 +92,15 @@ export async function insertRelease(db: D1Database, input: InsertReleaseInput): 
     await db
       .prepare(
         `INSERT INTO releases
-          (version, channel, r2_key, blockmap_key, size, sha512, blockmap_sha512, estimated_delta_size, notes_json, mandatory, published_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (version, channel, r2_key, blockmap_key, manifest_key, size, sha512, blockmap_sha512, estimated_delta_size, notes_json, mandatory, published_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         input.version,
         input.channel,
         input.r2Key,
         input.blockmapKey,
+        input.manifestKey,
         input.size,
         input.sha512,
         input.blockmapSha512,

@@ -7,7 +7,9 @@ import type { WorkerEnv } from '../env.js';
 const SECRET = 'test-secret';
 const CLIENT_ID = '11111111-1111-4111-8111-111111111111';
 const R2_KEY = 'releases/5.1.0/Setup.exe';
+const MANIFEST_R2_KEY = 'releases/5.1.0/manifest.json';
 const CONTENT = 'contenido de prueba del instalador';
+const MANIFEST_CONTENT = '{"version":"5.1.0"}';
 
 function testEnv(): WorkerEnv {
   return { ...env, YCORE_CLIENT_SECRET: SECRET, YCORE_ADMIN_TOKEN: 'admin-token' };
@@ -16,6 +18,17 @@ function testEnv(): WorkerEnv {
 describe('handleDownload', () => {
   beforeEach(async () => {
     await env.RELEASES.put(R2_KEY, CONTENT);
+    await env.RELEASES.put(MANIFEST_R2_KEY, MANIFEST_CONTENT);
+  });
+
+  it('con kind=manifest y firma válida, sirve el manifest.json (200)', async () => {
+    const signed = await signDownloadUrl(SECRET, MANIFEST_R2_KEY, CLIENT_ID, Math.floor(Date.now() / 1000));
+    const url = `https://updates.y-core.app/v1/download/5.1.0/manifest?t=${signed.expiresAtSeconds}&sig=${signed.signature}&clientId=${CLIENT_ID}`;
+
+    const response = await handleDownload(new Request(url), testEnv(), '5.1.0', 'manifest');
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe(MANIFEST_CONTENT);
   });
 
   it('con una firma válida, sirve el objeto completo (200)', async () => {

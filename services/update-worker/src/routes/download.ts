@@ -12,10 +12,12 @@ import { fetchReleaseObject } from '../data/downloads-r2.js';
 import { empty } from '../http/responses.js';
 import type { WorkerEnv } from '../env.js';
 
-const VALID_KINDS = new Set(['full', 'blockmap']);
+const VALID_KINDS = new Set(['full', 'blockmap', 'manifest']);
 
 function r2KeyFor(version: string, kind: string): string {
-  return kind === 'blockmap' ? `releases/${version}/Setup.exe.blockmap` : `releases/${version}/Setup.exe`;
+  if (kind === 'blockmap') return `releases/${version}/Setup.exe.blockmap`;
+  if (kind === 'manifest') return `releases/${version}/manifest.json`;
+  return `releases/${version}/Setup.exe`;
 }
 
 export async function handleDownload(request: Request, env: WorkerEnv, version: string, kind: string): Promise<Response> {

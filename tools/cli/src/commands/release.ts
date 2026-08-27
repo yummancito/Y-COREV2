@@ -38,6 +38,7 @@ export async function runRelease(args: readonly string[]): Promise<void> {
     rollout: requireNumber(flags, 'rollout'),
     r2Key: requireString(flags, 'r2-key'),
     blockmapKey: readNullableString(flags, 'blockmap-key'),
+    manifestKey: requireString(flags, 'manifest-key'),
     size: requireNumber(flags, 'size'),
     sha512: requireString(flags, 'sha512'),
     blockmapSha512: readNullableString(flags, 'blockmap-sha512'),

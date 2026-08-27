@@ -35,6 +35,22 @@ request. `fetchReleaseObject` devuelve `requestedRange` (el rango que el propio
 `fetchReleaseObject` calculó a partir de la cabecera `Range` del cliente), no lo que R2
 reporta internamente — esa es la señal correcta para el código de estado HTTP.
 
+## `/v1/check` y `/v1/admin/release` ganan `manifestUrl`/`manifestKey`
+
+El ADR-0003 exige verificar la firma Ed25519 del manifest antes de instalar, y
+`packages/update-contract` ya tenía `ManifestSchema` con su campo `signature` — pero
+`CheckResponseSchema` (la respuesta real de `/v1/check`) nunca incluía una URL para
+descargar ese manifest, solo `artifact.sha512` suelto sin firma. Sin esto,
+`verifyManifestSignature` de `packages/updater-client` no tenía de dónde traer un
+`Manifest` real: hueco descubierto al diseñar `apps/desktop/src/main/features/updates`,
+antes de escribir ningún código de cliente sobre una base incompleta.
+
+Se cierra añadiendo `manifestKey` a `AdminReleaseSchema`/la tabla `releases`
+(migración `0003_manifest_key.sql`, el pipeline de CI sube `manifest.json` ya firmado a
+R2 junto al instalador) y `manifestUrl` al `artifact` de `CheckResponseSchema` — una URL
+firmada más, mismo patrón que `artifact.url`/`delta.blockmapUrl`. `GET
+/v1/download/:version/manifest` es el tercer `kind` válido, junto a `full`/`blockmap`.
+
 ## `yank`/`rollout`/`block` comparten una tabla de auditoría genérica
 
 El ADR-0005 (punto 5) dice que la CLI `ycore` cubre cinco operaciones admin: `rollout`,

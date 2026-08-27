@@ -23,13 +23,15 @@ export async function handleAdminRelease(request: Request, env: WorkerEnv): Prom
   const config = await readYCoreConfig(env.CONFIG);
   if (config.ok === false) return badRequest(config.error.code, config.error.detail ?? 'fallo al leer KV');
 
-  const { version, channel, rollout, r2Key, blockmapKey, size, sha512, blockmapSha512, estimatedDeltaSize, notes, mandatory } = parsed.data;
+  const { version, channel, rollout, r2Key, blockmapKey, manifestKey, size, sha512, blockmapSha512, estimatedDeltaSize, notes, mandatory } =
+    parsed.data;
 
   const inserted = await insertRelease(env.DB, {
     version,
     channel,
     r2Key,
     blockmapKey,
+    manifestKey,
     size,
     sha512,
     blockmapSha512,

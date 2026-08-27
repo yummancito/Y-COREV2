@@ -15,7 +15,7 @@ import type { YCoreConfig } from './config.js';
 import type { ReleaseRecord } from './release-record.js';
 
 /** Arma la URL de `/v1/download` con los parámetros de la firma, incluido `clientId` (necesario para re-verificar). */
-function buildDownloadUrl(version: string, kind: 'full' | 'blockmap', clientId: string, signed: SignedDownloadParams): string {
+function buildDownloadUrl(version: string, kind: 'full' | 'blockmap' | 'manifest', clientId: string, signed: SignedDownloadParams): string {
   const params = new URLSearchParams({
     t: String(signed.expiresAtSeconds),
     sig: signed.signature,
@@ -77,6 +77,9 @@ export async function decideCheckResponse(input: DecideInput, secret: string, no
   const artifactSigned = await signDownloadUrl(secret, latestRelease.r2Key, clientId, nowSeconds);
   const artifactUrl = buildDownloadUrl(latestRelease.version, 'full', clientId, artifactSigned);
 
+  const manifestSigned = await signDownloadUrl(secret, latestRelease.manifestKey, clientId, nowSeconds);
+  const manifestUrl = buildDownloadUrl(latestRelease.version, 'manifest', clientId, manifestSigned);
+
   const delta =
     latestRelease.blockmapKey === null
       ? null
@@ -98,6 +101,7 @@ export async function decideCheckResponse(input: DecideInput, secret: string, no
       sha512: latestRelease.sha512,
       url: artifactUrl,
       urlExpiresAt: new Date(artifactSigned.expiresAtSeconds * 1000).toISOString(),
+      manifestUrl,
     },
     delta,
     checkAgainInSeconds: config.checkIntervalSeconds,

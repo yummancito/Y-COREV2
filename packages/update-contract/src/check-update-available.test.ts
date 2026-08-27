@@ -13,6 +13,7 @@ const validUpdateAvailable = {
     sha512: 'a'.repeat(128),
     url: 'https://updates.y-core.app/v1/download/5.1.0/full?t=1&sig=abc',
     urlExpiresAt: '2026-01-01T00:00:00.000Z',
+    manifestUrl: 'https://updates.y-core.app/v1/download/5.1.0/manifest?t=1&sig=abc',
   },
   delta: null,
   checkAgainInSeconds: 21600,

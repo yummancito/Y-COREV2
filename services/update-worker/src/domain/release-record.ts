@@ -10,6 +10,7 @@ export interface ReleaseRecord {
   readonly channel: string;
   readonly r2Key: string;
   readonly blockmapKey: string | null;
+  readonly manifestKey: string;
   readonly size: number;
   readonly sha512: string;
   readonly blockmapSha512: string | null;
