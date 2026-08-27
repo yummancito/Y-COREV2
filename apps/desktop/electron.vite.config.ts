@@ -47,6 +47,7 @@ const WORKSPACE_PACKAGES = [
   '@ycore/ipc-contract',
   '@ycore/logger',
   '@ycore/result',
+  '@ycore/steam-kit',
   '@ycore/update-contract',
   '@ycore/updater-client',
 ];

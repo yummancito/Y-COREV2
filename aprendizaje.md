@@ -891,3 +891,65 @@ un roadmap describe la intención, no necesariamente lo que terminó implementad
 `[texto](ruta)` bajo `docs/` y falla si alguno apunta a un archivo inexistente —
 la próxima vez que un índice prometa un documento que no se escribió,
 `pnpm check:docs` lo detecta solo, sin depender de una auditoría manual.
+
+## 2026-08-27 — `packages/steam-kit` faltaba en `WORKSPACE_PACKAGES` de electron.vite.config.ts
+
+**Contexto:** primer intento real de lanzar `pnpm --filter @ycore/desktop dev` en
+toda la sesión (nunca se había probado el arranque real de la app, solo
+`pnpm build`/`pnpm test`, que no ejercitan el mismo camino de carga del main
+process empaquetado).
+
+**Error:** Electron arrancaba, compilaba el bundle, y al cargar `out/main/index.js`
+crasheaba con `SyntaxError: Unexpected token 'export'` señalando
+`packages/steam-kit/src/index.ts:12`.
+
+**Causa:** `electron.vite.config.ts` tiene una lista `WORKSPACE_PACKAGES` que excluye
+de `externalizeDepsPlugin()` a los paquetes del workspace cuyo `exports` apunta
+directo a `.ts` — sin esa exclusión, Vite deja el import como `require('@ycore/x')`
+externo, y ese `require()` en el bundle final de Node no sabe transpilar TypeScript.
+`@ycore/steam-kit` se usa desde `main/features/steam/library-scanner.ts` pero nunca
+se añadió a esa lista cuando se escribió la Fase 3 — el bug quedó invisible porque
+`pnpm build`/`pnpm test` no ejecutan el bundle real bajo Electron, solo lo compilan o
+testean el código fuente directamente.
+
+**Solución:** se añadió `'@ycore/steam-kit'` a `WORKSPACE_PACKAGES`. Verificado con
+`pnpm build` real (el bundle final ya contiene el código de `steam-kit` inline, no un
+`require()`) y con un intento de arranque real.
+
+**Cómo evitarlo:** cuando una feature nueva importa un paquete del workspace nuevo en
+`apps/desktop/src/main/`, comprobar explícitamente que ese paquete esté en
+`WORKSPACE_PACKAGES` de `electron.vite.config.ts` — no hay ningún checker automático
+que lo detecte hoy (candidato a script futuro: listar las dependencias `@ycore/*` de
+`apps/desktop/package.json` cuyo `exports` sea un `.ts` y comparar contra esa lista).
+Más en general: `pnpm build`/`pnpm test` no sustituyen un lanzamiento real de la app
+— hay clases de bug (externalización de dependencias, bundling) que solo aparecen al
+arrancar el binario empaquetado de verdad.
+
+## 2026-08-27 — No se pudo verificar visualmente el arranque de la app en este entorno
+
+**Contexto:** tras arreglar el bug de `steam-kit`, se intentó confirmar que la
+ventana de Y-CORE abre de verdad (`pnpm dev`).
+
+**Resultado:** el proceso `electron.exe` termina de forma consistente e inmediata con
+`crashpad_client_win.cc(868)] not connected` **antes** de ejecutar cualquier código
+JS del main (no llega a loguear `main:bootstrap`, no crea el directorio `userData`),
+en todos los intentos probados: `pnpm dev` normal, con `ELECTRON_RUN_AS_NODE`
+desactivada (estaba activa por defecto en el entorno de la sesión y causaba un fallo
+distinto y real: `electron.app` undefined), invocando el `.exe` directo con
+`--no-sandbox`/`--disable-gpu`, y desde PowerShell nativo con acceso a la sesión de
+consola activa (`query session` confirmó una sesión `>console` activa, no una máquina
+headless).
+
+**Diagnóstico:** es una limitación del entorno de ejecución sandboxed de esta sesión
+(el proceso del agente no hereda el mismo contexto de estación de ventanas
+interactiva — `WinSta0\Default` — que un usuario lanzando la app manualmente desde
+su propia sesión), no un bug del código de Y-CORE. El build compila limpio, el
+bundle es correcto, y el único bug real encontrado en el camino (`steam-kit` sin
+externalizar) ya se corrigió.
+
+**Cómo evitarlo/verificarlo de verdad:** este tipo de fallo solo se puede confirmar o
+descartar lanzando `pnpm --filter @ycore/desktop dev` desde una sesión interactiva
+real del usuario (doble clic, terminal abierta directamente en su escritorio), no
+desde herramientas de automatización que ejecutan procesos en un contexto de sesión
+distinto. Documentado aquí para no repetir el mismo diagnóstico exhaustivo si vuelve
+a aparecer el mismo síntoma.
