@@ -7,6 +7,9 @@
  * plantilla vacía). Es la pieza que hace que "cada función nueva queda
  * documentada" sea una garantía y no una intención.
  *
+ * También recorre `services/*` y exige `docs/03-services/<servicio>/README.md`
+ * con el mismo criterio (ADR-0005, checker nº 5).
+ *
  * Uso:  pnpm check:docs
  * Salida: exit 0 = ok · exit 1 = falta documentación (lista qué falta)
  *
@@ -23,6 +26,8 @@ const FEATURE_DIRS = [
   'apps/desktop/src/renderer/features',
 ];
 const DOCS_FEATURES = join(REPO_ROOT, 'docs', '02-features');
+const SERVICES_DIR = join(REPO_ROOT, 'services');
+const DOCS_SERVICES = join(REPO_ROOT, 'docs', '03-services');
 const MIN_README_CHARS = 200;
 
 /** Lista los subdirectorios de una ruta, o [] si no existe. */
@@ -42,31 +47,29 @@ function collectFeatures() {
   return [...features].sort();
 }
 
-const problems = [];
-
-for (const feature of collectFeatures()) {
-  const readme = join(DOCS_FEATURES, feature, 'README.md');
-
-  if (!existsSync(readme)) {
-    problems.push(
-      `falta docs/02-features/${feature}/README.md ` +
-        `(la feature existe en el código pero no está documentada)`,
-    );
-    continue;
+/** Verifica un README.md esperado y añade a `problems` cualquier incumplimiento. */
+function checkReadme(readmePath, displayPath, problems) {
+  if (!existsSync(readmePath)) {
+    problems.push(`falta ${displayPath} (existe en el código pero no está documentado)`);
+    return;
   }
 
-  const content = readFileSync(readme, 'utf8').trim();
+  const content = readFileSync(readmePath, 'utf8').trim();
   if (content.length < MIN_README_CHARS) {
     problems.push(
-      `docs/02-features/${feature}/README.md está casi vacío ` +
-        `(${content.length} caracteres, mínimo ${MIN_README_CHARS}). Descríbela de verdad.`,
+      `${displayPath} está casi vacío (${content.length} caracteres, mínimo ${MIN_README_CHARS}). ` +
+        `Descríbelo de verdad.`,
     );
   }
   if (content.includes('TODO') || content.includes('<!-- rellenar -->')) {
-    problems.push(
-      `docs/02-features/${feature}/README.md todavía tiene marcadores TODO sin rellenar.`,
-    );
+    problems.push(`${displayPath} todavía tiene marcadores TODO sin rellenar.`);
   }
+}
+
+const problems = [];
+
+for (const feature of collectFeatures()) {
+  checkReadme(join(DOCS_FEATURES, feature, 'README.md'), `docs/02-features/${feature}/README.md`, problems);
 }
 
 // Documentación huérfana: docs de features que ya no existen en el código.
@@ -80,6 +83,21 @@ for (const documented of listDirs(DOCS_FEATURES)) {
   }
 }
 
+const services = listDirs(SERVICES_DIR);
+for (const service of services) {
+  checkReadme(join(DOCS_SERVICES, service, 'README.md'), `docs/03-services/${service}/README.md`, problems);
+}
+
+const codeServices = new Set(services);
+for (const documented of listDirs(DOCS_SERVICES)) {
+  if (!codeServices.has(documented)) {
+    problems.push(
+      `docs/03-services/${documented}/ documenta un servicio que ya no existe en el código. ` +
+        `Bórrala o restaura el servicio.`,
+    );
+  }
+}
+
 if (problems.length > 0) {
   console.error('FALLO: check:docs no pasó:\n');
   for (const p of problems) console.error(`  • ${p}`);
@@ -87,6 +105,9 @@ if (problems.length > 0) {
   process.exit(1);
 }
 
-const total = collectFeatures().length;
-console.log(`OK: check:docs — ${total} feature(s) documentada(s) correctamente.`);
+const totalFeatures = collectFeatures().length;
+const totalServices = services.length;
+console.log(
+  `OK: check:docs — ${totalFeatures} feature(s) y ${totalServices} servicio(s) documentado(s) correctamente.`,
+);
 process.exit(0);

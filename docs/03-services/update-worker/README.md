@@ -68,6 +68,16 @@ anti-scraping, URLs firmadas, qué se testea local vs. manual) y
 [decisions.md](decisions.md) para decisiones locales encontradas durante la
 implementación que no ameritaron ampliar el ADR.
 
+Dos checkers de `tools/scripts/` protegen las dos propiedades más críticas de este
+servicio, y corren en `pnpm check:all` y en el hook de pre-commit:
+
+- `pnpm check:worker-routes`: falla si aparece un segundo `export default { fetch }` o
+  un `addEventListener('fetch')` suelto — el equivalente servidor del `ipcMain.handle`
+  único.
+- `pnpm check:no-private-key`: falla si aparece `PRIVATE_KEY`, `BEGIN PRIVATE KEY` o
+  `SIGNING_KEY` bajo `services/` o en `wrangler.jsonc` — la clave Ed25519 se firma
+  siempre en CI, nunca aquí (ADR-0005, punto 5).
+
 **Todavía no existe**: `tools/cli` (el CLI `ycore` que llama a los endpoints admin), el
 pipeline de CI que firma el manifest y publica releases, y la verificación end-to-end
 con una cuenta real de Cloudflare (`wrangler deploy`, DNS, e2e con binarios — ver

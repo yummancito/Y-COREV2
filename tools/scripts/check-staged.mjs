@@ -6,13 +6,18 @@
  * un instalador `.exe` de 428 MB commiteado, y ~90 `.md` de auditorías sueltos
  * en la raíz.
  *
+ * También corre aquí `check:no-private-key` (ADR-0005, punto 5): la clave privada
+ * Ed25519 no puede colarse en `services/` ni en un `wrangler.jsonc` ni en un commit.
+ *
  * Uso:  node tools/scripts/check-staged.mjs   (desde el hook pre-commit)
  * Salida: exit 0 = ok · exit 1 = commit rechazado
  */
 
 import { execSync } from 'node:child_process';
-import { statSync, existsSync } from 'node:fs';
+import { statSync, existsSync, readFileSync } from 'node:fs';
 import { basename } from 'node:path';
+
+const FORBIDDEN_KEY_PATTERNS = [/PRIVATE_KEY/, /BEGIN PRIVATE KEY/, /SIGNING_KEY/];
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const ROOT_MD_ALLOWLIST = new Set([
@@ -49,6 +54,20 @@ for (const file of stagedFiles()) {
   const name = basename(file);
   if (isRoot && name.endsWith('.md') && !ROOT_MD_ALLOWLIST.has(name)) {
     problems.push(`${file}: los .md van a docs/, no a la raíz.`);
+  }
+
+  const isWranglerConfig = file === 'services/update-worker/wrangler.jsonc';
+  if (file.startsWith('services/') || isWranglerConfig) {
+    const content = readFileSync(file, 'utf8');
+    for (const pattern of FORBIDDEN_KEY_PATTERNS) {
+      if (pattern.test(content)) {
+        problems.push(
+          `${file}: contiene "${pattern}" — la clave privada Ed25519 se firma SIEMPRE en CI, ` +
+            `nunca en el Worker (ADR-0005, punto 5).`,
+        );
+        break;
+      }
+    }
   }
 }
 
