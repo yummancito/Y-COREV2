@@ -31,8 +31,10 @@ Una directiva de Control de aplicaciones bloqueó este archivo
 ```
 
 No es un fallo de configuración: es la política de la máquina rechazando binarios sin
-firma. El mismo tipo de bloqueo que sufre el instalador de Y-CORE con Defender y que
-motiva el [ADR-0005](adr/0005-firma-ed25519-sin-certificado.md).
+firma. El mismo tipo de bloqueo que sufre el instalador de Y-CORE con Defender por no
+tener firma de código Authenticode — ver
+[`06-security/code-protection.md`](06-security/code-protection.md) y
+[`06-security/signing.md`](06-security/signing.md) para por qué se acepta ese coste.
 
 **Qué hacemos en su lugar**: hooks `sh` en `.githooks/`, activados con
 `git config core.hooksPath .githooks` desde el script `prepare`. Llaman a los mismos

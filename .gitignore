@@ -52,5 +52,11 @@ Thumbs.db
 desktop.ini
 *.log
 
+# Obsidian — docs/ es la vault. workspace*.json y el cache son locales por persona;
+# app.json/appearance.json/core-plugins.json sí se versionan si se decide fijarlos.
+docs/.obsidian/workspace.json
+docs/.obsidian/workspace-mobile.json
+docs/.obsidian/plugins/*/data.json
+
 # Claude Code — settings.json SÍ se versiona (los hooks son parte del proyecto)
 .claude/settings.local.json

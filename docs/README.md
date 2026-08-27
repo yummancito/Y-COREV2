@@ -2,6 +2,10 @@
 
 Índice maestro. Todo documento del proyecto vive aquí — **nunca en la raíz del repo**.
 
+Esta carpeta es también una vault de Obsidian navegable (grafo, backlinks, búsqueda)
+— ver [`00-overview/obsidian-vault.md`](00-overview/obsidian-vault.md) para cómo
+abrirla.
+
 ## Empezar por aquí
 
 | Documento | Para qué |
