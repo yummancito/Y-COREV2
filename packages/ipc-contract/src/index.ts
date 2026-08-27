@@ -17,6 +17,7 @@ import { appChannels } from './channels/app.js';
 import { libraryChannels } from './channels/library.js';
 import { steamChannels } from './channels/steam.js';
 import { downloadsChannels } from './channels/downloads.js';
+import { updatesChannels } from './channels/updates.js';
 import { assertContractIsFullyDescribed } from './assert-described.js';
 
 /** Todos los canales del contrato, namespaced por feature (`<feature>.<verbo>`). */
@@ -25,6 +26,7 @@ export const contract = {
   ...libraryChannels,
   ...steamChannels,
   ...downloadsChannels,
+  ...updatesChannels,
 } as const;
 
 assertContractIsFullyDescribed(contract);

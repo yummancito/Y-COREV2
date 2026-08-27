@@ -48,7 +48,7 @@ export const rulesDeBoundaries = {
         { from: 'renderer-shared', allow: ['ui-kit', 'i18n', 'result'] },
         {
           from: 'main-feature',
-          allow: ['main-platform', 'main-db', 'core-domain', 'steam-kit', 'logger', 'result'],
+          allow: ['main-platform', 'main-db', 'core-domain', 'steam-kit', 'logger', 'result', 'update-contract', 'updater-client'],
           message:
             'Una feature del main no puede importar de otra feature. Si necesitan ' +
             'compartir lógica, súbela a packages/core-domain (B.3 del roadmap).',

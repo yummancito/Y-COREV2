@@ -9,11 +9,13 @@
 
 import { DownloadsList } from './features/downloads/index.js';
 import { LibraryGrid } from './features/library/index.js';
+import { UpdateBanner } from './features/updates/index.js';
 
 export function App(): React.JSX.Element {
   return (
     <main>
       <h1>Y-CORE</h1>
+      <UpdateBanner />
       <LibraryGrid />
       <h2>Descargas</h2>
       <DownloadsList />

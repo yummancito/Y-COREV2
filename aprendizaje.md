@@ -783,3 +783,43 @@ válida.
 **Cómo evitarlo:** al escribir el subject de un commit, evitar empezarlo con una sigla
 en mayúsculas (CLI, IPC, API...) — usarla en minúscula o reformular la frase para que
 la sigla no sea la primera palabra.
+
+## 2026-08-27 — ESLint y `tsc` ven "programas" TS distintos para el mismo archivo
+
+**Contexto:** al escribir `apps/desktop/src/main/features/updates/download.ts`, que
+castea `response.body` para pasarlo a `Readable.fromWeb` (mismo patrón ya existente en
+`main/features/downloads/http-client.ts`).
+
+**Error:** `pnpm typecheck` (que corre `tsc --noEmit -p tsconfig.node.json` aislado)
+exigía el cast `as unknown as Parameters<typeof Readable.fromWeb>[0]` para compilar,
+pero `pnpm lint` (ESLint con `projectService: true`) lo marcaba como
+`@typescript-eslint/no-unnecessary-type-assertion` — el cast que una herramienta exige,
+la otra rechaza, sobre el mismo archivo y el mismo `as`.
+
+**Causa:** `apps/desktop/tsconfig.json` (el raíz, sin `files`, solo `references`) declara
+referencias a `tsconfig.node.json` y `tsconfig.web.json`. `tsc --noEmit -p
+tsconfig.node.json` compila solo ese proyecto, sin lib DOM. El `projectService` de
+ESLint, en cambio, resuelve el tsconfig por archivo combinando el árbol de referencias
+completo — para archivos de `main/`, eso incluye indirectamente `tsconfig.web.json` (que
+sí tiene lib DOM) en cuanto el archivo importa (aunque sea transitivamente) algo que ese
+proyecto combinado también ve, cambiando cómo TS resuelve `ReadableStream`/`Uint8Array`
+para ESLint frente a `tsc` real. `main/features/downloads/http-client.ts` no disparaba
+el problema porque su árbol de imports no arrastraba esa combinación; `updates/download.ts`
+sí, por la cadena hacia `packages/updater-client` (que usa `crypto.subtle`, cuyos tipos
+también varían con lib DOM presente o no).
+
+**Solución:** en vez de perseguir qué combinación de tipos ven una y otra herramienta
+(o silenciar con `eslint-disable` + `docs/exceptions.md`, que habría sido la salida
+fácil pero deja el símbolo etiquetado como excepción permanente), se reescribió
+`downloadToFile` con `Readable.from(response.body as unknown as
+AsyncIterable<Uint8Array>)` en vez de `Readable.fromWeb(...)`. `response.body` es un
+async iterable de `Uint8Array` en runtime bajo cualquier resolución de tipos — el cast
+a `AsyncIterable<Uint8Array>` (no a `ReadableStream`, cuya forma exacta sí varía) es
+válido para `tsc` y para ESLint a la vez, sin necesitar ninguna excepción.
+
+**Cómo evitarlo:** cuando un cast necesario para `tsc` aparece como innecesario para
+ESLint (o viceversa) en el mismo archivo, sospechar primero de una discrepancia entre
+qué "programa" ve cada herramienta (`projectService`/referencias de proyecto vs. un
+`tsconfig` aislado) antes de silenciar con `eslint-disable`. Buscar un tipo de destino
+que sea válido bajo ambas resoluciones posibles (aquí, `AsyncIterable<T>` en vez de
+`ReadableStream<T>`) suele evitar la excepción por completo.

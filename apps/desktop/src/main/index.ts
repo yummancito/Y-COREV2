@@ -15,6 +15,7 @@ import { openAppDatabase } from './bootstrap/database.js';
 import { createMainWindow } from './bootstrap/window.js';
 import { startSteamWatcher } from './bootstrap/steam-watcher.js';
 import { resumeInterruptedDownloads } from './bootstrap/download-resumer.js';
+import { createUpdateService, startUpdateScheduler } from './bootstrap/update-scheduler.js';
 import { buildRegistry } from './ipc/registry.js';
 import { registerIpcRouter } from './ipc/router.js';
 
@@ -44,9 +45,11 @@ if (!enforceSingleInstance(showOrCreateMainWindow)) {
     const db = openAppDatabase();
     app.on('will-quit', () => db.$client.close());
 
-    registerIpcRouter(buildRegistry(db));
+    const updateService = createUpdateService(db);
+    registerIpcRouter(buildRegistry(db, updateService, () => app.quit()));
     void startSteamWatcher(db);
     resumeInterruptedDownloads(db);
+    startUpdateScheduler(updateService);
     mainWindow = createMainWindow();
     attachLifecycleHandlers(() => (mainWindow = createMainWindow()));
 

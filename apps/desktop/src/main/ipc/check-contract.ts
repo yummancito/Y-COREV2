@@ -21,10 +21,19 @@
 import { join } from 'node:path';
 import { contract } from '@ycore/ipc-contract';
 import { openDatabase } from '../db/index.js';
+import { UpdateService } from '../features/updates/index.js';
 import { buildRegistry } from './registry.js';
 
 const db = openDatabase(':memory:', join(import.meta.dirname, '../db/migrations'));
-const registry = buildRegistry(db);
+const updateService = new UpdateService({
+  workerBaseUrl: 'http://127.0.0.1:0',
+  clientSecret: '',
+  manifestPublicKeysBase64: [],
+  currentVersion: '0.0.0',
+  channel: 'stable',
+  clientId: '00000000-0000-4000-8000-000000000000',
+});
+const registry = buildRegistry(db, updateService, () => {});
 db.$client.close();
 
 const contractChannels = new Set(Object.keys(contract));

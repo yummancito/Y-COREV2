@@ -3,6 +3,7 @@ import { isErr, isOk } from '@ycore/result';
 import { contract } from '@ycore/ipc-contract';
 import { openDatabase, games, type YCoreDatabase } from '../db/index.js';
 import { MIGRATIONS_FOLDER } from '../db/test-helpers.js';
+import { UpdateService } from '../features/updates/index.js';
 import { buildRegistry, type Registry } from './registry.js';
 
 describe('buildRegistry', () => {
@@ -11,7 +12,15 @@ describe('buildRegistry', () => {
 
   beforeEach(() => {
     db = openDatabase(':memory:', MIGRATIONS_FOLDER);
-    registry = buildRegistry(db);
+    const updateService = new UpdateService({
+      workerBaseUrl: 'http://127.0.0.1:0',
+      clientSecret: '',
+      manifestPublicKeysBase64: [],
+      currentVersion: '0.0.0',
+      channel: 'stable',
+      clientId: '00000000-0000-4000-8000-000000000000',
+    });
+    registry = buildRegistry(db, updateService, () => {});
   });
 
   afterEach(() => {

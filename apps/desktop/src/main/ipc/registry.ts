@@ -19,6 +19,7 @@ import type { YCoreDatabase } from '../db/index.js';
 import { createLibraryHandlers, LibraryRepository, LibraryService } from '../features/library/index.js';
 import { createSteamHandlers, SteamService } from '../features/steam/index.js';
 import { createDownloadHandlers, DownloadRepository, DownloadService } from '../features/downloads/index.js';
+import { createUpdateHandlers, type UpdateService } from '../features/updates/index.js';
 
 /**
  * Firma de un handler para el canal `C`: recibe input ya validado, nunca lanza.
@@ -43,12 +44,17 @@ function handleAppPing(): Promise<Result<{ pong: true; receivedAt: string }, App
  * de abrir la base de datos.
  *
  * @param db - Conexión de Drizzle ya migrada, para los repositorios de features.
+ * @param updateService - Instancia ya construida por el bootstrap (necesita
+ *   secretos/claves que no vienen de la DB, a diferencia del resto de features).
+ * @param onBeforeQuitToInstall - Cierra la app cuando `updates.installNow` lanza
+ *   el instalador con éxito. Inyectado para no acoplar la feature a `electron.app`.
  */
-export function buildRegistry(db: YCoreDatabase): Registry {
+export function buildRegistry(db: YCoreDatabase, updateService: UpdateService, onBeforeQuitToInstall: () => void): Registry {
   const libraryRepository = new LibraryRepository(db);
   const library = createLibraryHandlers(new LibraryService(libraryRepository));
   const steam = createSteamHandlers(new SteamService(libraryRepository));
   const downloads = createDownloadHandlers(new DownloadService(new DownloadRepository(db)));
+  const updates = createUpdateHandlers(updateService, onBeforeQuitToInstall);
 
   return {
     'app.ping': handleAppPing,
@@ -59,5 +65,7 @@ export function buildRegistry(db: YCoreDatabase): Registry {
     'downloads.list': downloads.list,
     'downloads.pause': downloads.pause,
     'downloads.cancel': downloads.cancel,
+    'updates.getStatus': updates.getStatus,
+    'updates.installNow': updates.installNow,
   };
 }

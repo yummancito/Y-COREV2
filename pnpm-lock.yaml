@@ -53,6 +53,12 @@ importers:
       '@ycore/steam-kit':
         specifier: workspace:*
         version: link:../../packages/steam-kit
+      '@ycore/update-contract':
+        specifier: workspace:*
+        version: link:../../packages/update-contract
+      '@ycore/updater-client':
+        specifier: workspace:*
+        version: link:../../packages/updater-client
       better-sqlite3:
         specifier: ^13.0.3
         version: 13.0.3

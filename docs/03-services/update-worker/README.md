@@ -101,7 +101,8 @@ Seis comandos, todos leyendo `YCORE_WORKER_URL` y `YCORE_ADMIN_TOKEN` del entorn
 
 ```
 pnpm --filter @ycore/cli ycore release --version 5.1.0 --channel stable --rollout 10 \
-  --r2-key releases/5.1.0/Setup.exe --size 98123456 --sha512 <hex> \
+  --r2-key releases/5.1.0/Setup.exe --manifest-key releases/5.1.0/manifest.json \
+  --size 98123456 --sha512 <hex> \
   --notes-es "..." --notes-en "..." [--blockmap-key ... --blockmap-sha512 ... --mandatory]
 
 pnpm --filter @ycore/cli ycore maintenance --on|--off --note "..." --actor yummancito

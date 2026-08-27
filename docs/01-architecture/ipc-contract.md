@@ -131,3 +131,33 @@ Resultado del escaneo. Los datos ya quedaron guardados; usa library.list para le
 
   - `gamesFound: integer` — Cuántos juegos se encontraron instalados.
 
+## Namespace `updates.*`
+
+### `updates.getStatus`
+
+Sin filtros: devuelve el estado actual del ciclo de actualización.
+
+**Input:**
+
+  (sin campos)
+
+**Output:**
+
+El estado actual, para que el renderer haga polling.
+
+  - `status: unknown` — Estado actual del ciclo de actualización, tal como lo ve el renderer. No existe un estado "en mantenimiento": el Worker lo hace indistinguible de up-to-date (ADR-0003).
+
+### `updates.installNow`
+
+Instala la actualización ya descargada y verificada (fase ready-to-install) y cierra la app.
+
+**Input:**
+
+  (sin campos)
+
+**Output:**
+
+La instalación se lanzó; la app va a cerrarse.
+
+  (sin campos)
+

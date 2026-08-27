@@ -13,7 +13,7 @@ abre un issue para corregir este archivo.
 
 | Carpeta | Qué es | Estado |
 |---|---|---|
-| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 2: feature Biblioteca completa (main + renderer). Fase 3 completa: feature Steam. Fase 4 completa: motor de descargas (ADR-0004), main + renderer. |
+| `apps/desktop` | App de escritorio Electron (main, preload, renderer). El producto. | Fase 2: feature Biblioteca completa (main + renderer). Fase 3 completa: feature Steam. Fase 4 completa: motor de descargas (ADR-0004), main + renderer. Fase 5: feature Actualizaciones (ADR-0003/ADR-0005), main + renderer, ciclo completo salvo diferencial por blockmap. |
 | `apps/web-landing` | Landing estática "próximamente", en Astro. Se despliega en Cloudflare Pages. | Contenido inicial hecho — ver `docs/00-overview/repo-map.md#apps-web-landing`. |
 
 ### `apps/desktop`
@@ -55,9 +55,17 @@ apps/desktop/
 │   ├── extractor.ts               ZIP con yauzl, protegido contra zip-slip
 │   ├── service.ts                 orquesta todo contra transition() + dedupe en memoria + token bucket
 │   └── handlers.ts                traduce dominio ↔ forma exacta del contrato IPC
+├── src/main/features/updates/    Fase 5 (ADR-0003/ADR-0005): actualizaciones de la app
+│   ├── client-id-repository.ts     tabla `settings` ↔ clientId estable (UUID v4)
+│   ├── download.ts                 downloadToFile/downloadJson: I/O de red sin reanudación
+│   ├── service.ts                  UpdateService: checkForUpdate -> descarga -> verificación
+│   └── handlers.ts                 traduce dominio ↔ forma exacta del contrato IPC
 ├── src/main/platform/
 │   ├── process-launcher.ts        único lugar que hace spawn() real (lanzar juegos)
+│   ├── installer-launcher.ts      único lugar que lanza el instalador NSIS (flag /S)
 │   └── steam-registry.ts          único lugar que lee el registro de Windows (Steam)
+├── src/main/bootstrap/update-scheduler.ts
+│   createUpdateService/startUpdateScheduler   config de updates desde el entorno + ciclo periódico
 ├── src/renderer/features/library/    lado renderer del molde canónico
 │   ├── hooks/                          useLibraryQuery, useLaunchGame (TanStack Query)
 │   └── components/                     GameCard, LibraryGrid
@@ -65,6 +73,9 @@ apps/desktop/
 │   ├── hooks/                          useDownloadsQuery (polling), useEnqueueDownload,
 │   │                                    usePauseDownload, useCancelDownload
 │   └── components/                     DownloadsList, DownloadRow
+├── src/renderer/features/updates/    lado renderer de actualizaciones
+│   ├── hooks/                          useUpdateStatusQuery (polling), useInstallUpdate
+│   └── components/                     UpdateBanner (único componente)
 ├── tools/
 │   ├── rebuild-native-for-electron.mjs   recompila better-sqlite3 para la ABI de Electron
 │   └── rebuild-native-for-node.mjs       restaura el binding de Node (para los tests)
@@ -73,7 +84,8 @@ apps/desktop/
 
 Documentación de la feature Biblioteca en `docs/02-features/library/`, de la feature
 Steam en `docs/02-features/steam/`, de la feature Descargas en
-`docs/02-features/downloads/`.
+`docs/02-features/downloads/`, de la feature Actualizaciones en
+`docs/02-features/updates/`.
 
 **better-sqlite3 y ABI nativa**: el binding compilado no puede ser el mismo para
 `pnpm test` (corre bajo Node) y `pnpm dev`/`pnpm build` (corren bajo Electron, ABI

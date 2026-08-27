@@ -15,6 +15,13 @@
       "when": 1787677806615,
       "tag": "0001_strong_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787818218655,
+      "tag": "0002_smart_hammerhead",
+      "breakpoints": true
     }
   ]
 }

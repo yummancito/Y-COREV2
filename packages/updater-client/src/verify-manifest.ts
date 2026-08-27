@@ -54,7 +54,14 @@ async function verifyWithKey(payload: Uint8Array, signature: Uint8Array, publicK
   try {
     const keyBytes = Uint8Array.from(atob(publicKeyBase64), (char) => char.charCodeAt(0));
     const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'Ed25519' }, false, ['verify']);
-    return await crypto.subtle.verify('Ed25519', key, signature, payload);
+    // `crypto.subtle.verify` con lib DOM presente exige `Uint8Array<ArrayBuffer>`
+    // (nunca `SharedArrayBuffer`); `Uint8Array.from` en @types/node sin DOM
+    // infiere `ArrayBufferLike`, más laxo. Son el mismo objeto en runtime — se
+    // fuerza el tipo estricto para que el paquete typechequee igual con o sin
+    // lib DOM en el tsconfig del consumidor (ver apps/desktop, que sí la tiene).
+    const signatureBuffer = signature as Uint8Array<ArrayBuffer>;
+    const payloadBuffer = payload as Uint8Array<ArrayBuffer>;
+    return await crypto.subtle.verify('Ed25519', key, signatureBuffer, payloadBuffer);
   } catch {
     return false;
   }

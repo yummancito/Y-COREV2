@@ -64,3 +64,17 @@ export const downloads = sqliteTable(
     uniqueIndex('downloads_active_app').on(table.appId).where(sql`${table.status} NOT IN ('done', 'failed')`),
   ],
 );
+
+/**
+ * Pares clave-valor de configuración local persistente (Fase 5, ADR-0005).
+ *
+ * Hoy solo guarda `clientId` (UUID v4 generado en el primer arranque, para el
+ * rollout determinista del update-worker — ADR-0005, punto 6: debe ser
+ * estable entre arranques, o el cliente entraría y saldría del rollout cada
+ * vez). Tabla genérica en vez de una columna dedicada porque es la forma
+ * estándar de guardar ajustes sueltos sin migrar el esquema por cada uno.
+ */
+export const settings = sqliteTable('settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+});
