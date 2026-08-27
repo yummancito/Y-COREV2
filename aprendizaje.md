@@ -764,3 +764,22 @@ momento — son dos listas independientes que hay que mantener en sincronía a m
 `commitlint.config.mjs` (scope del commit) — son dos archivos distintos que se olvidan
 por separado. Considerar en el futuro derivar `SCOPES_EXISTENTES` automáticamente de los
 nombres de `pnpm-workspace.yaml` en vez de mantener la lista a mano.
+
+## 2026-08-27 — Commit de `tools/cli` rechazado por subject-case
+
+**Contexto:** al commitear `tools/cli` (la CLI `ycore`, ADR-0005 punto 5) con el
+mensaje `feat(cli): CLI ycore para administrar...`.
+
+**Error:** commitlint rechazó el commit con `subject must not be sentence-case,
+start-case, pascal-case, upper-case`.
+
+**Causa:** `@commitlint/config-conventional` exige que el subject (todo lo que sigue a
+`tipo(scope): `) empiece en minúscula. La palabra "CLI" en mayúsculas al inicio del
+subject se interpreta como start-case/upper-case, aunque semánticamente sea una sigla
+válida.
+
+**Solución:** se reescribió el subject en minúscula (`cli ycore para administrar...`).
+
+**Cómo evitarlo:** al escribir el subject de un commit, evitar empezarlo con una sigla
+en mayúsculas (CLI, IPC, API...) — usarla en minúscula o reformular la frase para que
+la sigla no sea la primera palabra.
