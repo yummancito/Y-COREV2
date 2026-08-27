@@ -3,12 +3,12 @@
   "name": "ycore-update-worker",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-01",
-  "kv_namespaces": [{ "binding": "CONFIG", "id": "REEMPLAZAR_EN_DEPLOY_REAL" }],
+  "kv_namespaces": [{ "binding": "CONFIG", "id": "cc64ac0e6cfb4c8495c6161395eb98bb" }],
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "ycore_updates",
-      "database_id": "REEMPLAZAR_EN_DEPLOY_REAL"
+      "database_id": "f28a1c65-1cf2-48fe-8763-879a70338fd9"
     }
   ],
   "r2_buckets": [{ "binding": "RELEASES", "bucket_name": "ycore-releases" }],

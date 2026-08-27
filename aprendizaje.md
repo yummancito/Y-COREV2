@@ -1142,3 +1142,37 @@ no solo la sub-llamada que a primera vista parece la más propensa a fallar. Un
 `UpdateServiceConfig` con campos vacíos/placeholder (`clientSecret: ''`, URLs
 dummy) es exactamente el tipo de entrada que un test debería cubrir explícitamente
 — se añadió `service.test.ts > "configuración inerte"` para esto.
+
+## 2026-08-27 — `/v1/check` devolvía siempre `up-to-date` con una release ya publicada
+
+**Contexto:** primer despliegue real de `services/update-worker` (KV, D1, R2 creados
+de cero en Cloudflare), verificando en vivo el ciclo `maintenance on/off` y
+`release publish` → `/v1/check` → `/v1/download` de punta a punta contra el Worker
+real, no contra tests.
+
+**Error:** con una release publicada en D1 (`rollout: 100`, no yanked) y el canal
+`stable` correcto en KV, `GET /v1/check` seguía respondiendo `up-to-date` en vez de
+`update-available`. `check_stats` en D1 mostraba `outcome: "rejected"` para cada
+intento, sin más detalle.
+
+**Causa:** `CheckRequestSchema.clientId` exige `z.uuid()` (roadmap C.2: "UUID v4
+local y estable"). Las pruebas manuales usaban `clientId=test-client`, que no es un
+UUID válido — `CheckRequestSchema.safeParse` fallaba y `handleCheck` caía en
+`respondUpToDateAndCount` *antes* de siquiera comprobar la firma `X-YCore-Signature`
+(por diseño: ADR-0003 exige que cualquier input inválido se trate como `up-to-date`
+en silencio, sin distinguir la causa en la respuesta HTTP). El síntoma ("no hay
+update") no daba ninguna pista de que la causa real era el formato del `clientId`.
+
+**Solución:** repetir la petición con un UUID v4 real (`crypto.randomUUID()`) y su
+HMAC correspondiente sobre `clientId + version + channel` — el flujo completo
+(`update-available` → URL de descarga firmada → `/v1/download` sirviendo el archivo
+exacto de R2) funcionó de inmediato.
+
+**Cómo evitarlo:** el propio diseño (silencio total ante cualquier error, ADR-0003)
+hace que depurar `/v1/check` a mano sea ciego por construcción — es la garantía
+correcta para el cliente real, pero un costo real para quien prueba el Worker en
+vivo. Al probar manualmente este endpoint, generar siempre el `clientId` con
+`crypto.randomUUID()` y la firma con el mismo secreto que se subió con
+`wrangler secret put YCORE_CLIENT_SECRET`, nunca con valores de prueba arbitrarios.
+Si hace falta depurar más a fondo, usar `check_stats` (día/versión/canal/outcome)
+como única señal disponible sin tocar el código del Worker.
