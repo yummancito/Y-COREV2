@@ -27,9 +27,9 @@ const DEFAULT_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
  * que Y-CORE abra.
  */
 function readUpdateServiceConfig(db: YCoreDatabase): UpdateServiceConfig | null {
-  const workerBaseUrl = process.env['YCORE_WORKER_URL'];
-  const clientSecret = process.env['YCORE_CLIENT_SECRET'];
-  const publicKeysRaw = process.env['YCORE_MANIFEST_PUBLIC_KEYS'];
+  const workerBaseUrl = process.env.YCORE_WORKER_URL;
+  const clientSecret = process.env.YCORE_CLIENT_SECRET;
+  const publicKeysRaw = process.env.YCORE_MANIFEST_PUBLIC_KEYS;
 
   if (workerBaseUrl === undefined || clientSecret === undefined || publicKeysRaw === undefined) {
     log.warn('configuración de updates incompleta en el entorno, la comprobación queda desactivada');

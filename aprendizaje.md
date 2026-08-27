@@ -1176,3 +1176,36 @@ vivo. Al probar manualmente este endpoint, generar siempre el `clientId` con
 `wrangler secret put YCORE_CLIENT_SECRET`, nunca con valores de prueba arbitrarios.
 Si hace falta depurar más a fondo, usar `check_stats` (día/versión/canal/outcome)
 como única señal disponible sin tocar el código del Worker.
+
+## 2026-08-27 — `update-scheduler.ts` leía `process.env` en runtime pero nada lo embebía en build
+
+**Contexto:** ADR-0006, redactado tras notar que `apps/desktop/src/main/bootstrap/update-scheduler.ts`
+lee `YCORE_WORKER_URL`/`YCORE_CLIENT_SECRET`/`YCORE_MANIFEST_PUBLIC_KEYS` de
+`process.env`, pero un `.exe` instalado no hereda el entorno de la máquina de CI
+que lo compiló.
+
+**Error:** feature de updates completa (Worker, CLI, firma Ed25519) que nunca se
+ejecutaría en producción real, en silencio — el modo inerte documentado (correcto
+para robustez de arranque) enmascaraba que faltaba el mecanismo de build por
+completo.
+
+**Causa:** `electron.vite.config.ts` nunca tuvo un `define` para estas tres
+variables, y `release-desktop.yml` llamaba a `package:win` (`electron-builder`)
+sin haber corrido antes `pnpm build` (`electron-vite build`, donde vive el
+`define`) con esas variables en el entorno.
+
+**Solución:** ADR-0006 — `define` de electron-vite en la sección `main` (nunca en
+`preload`/`renderer`), sustituyendo `process.env.YCORE_*` por literales en build
+time; `YCORE_REQUIRE_UPDATE_CONFIG=1` hace fallar el build en un release real si
+falta alguna; tres checkers nuevos (`check:build-config`, test de integración de
+build, smoke test contra el Worker real en CI con verificación en `check_stats`).
+
+**Cómo evitarlo:** cuando una función lee `process.env` fuera del proceso donde
+corre `pnpm dev`/`pnpm test` (es decir, en un binario que se distribuye), verificar
+explícitamente qué lo convierte en parte del artefacto final — "está en el código"
+y "está en el `.exe`" son cosas distintas y la brecha entre ambas no aparece en
+ningún test unitario, solo en un test que ejecuta el build real (de ahí el nuevo
+`update-scheduler.test.ts`, que compila con la API `build()` de `electron-vite` en
+vez de spawnear un subproceso — un `execFileSync('npx', ...)` o el `.cmd` de
+`node_modules/.bin` con `shell: true` fallan en Windows cuando la ruta del repo
+tiene espacios, exactamente el caso de esta máquina).

@@ -6,10 +6,12 @@
 # ya subió, nunca firma nada. La clave privada Ed25519 vive solo en
 # `secrets.YCORE_SIGNING_KEY_BASE64`, nunca en el Worker ni en un disco local.
 #
-# Pasos: build Windows → sha512/size del instalador → firmar manifest.json con
-# Ed25519 → subir instalador + .blockmap + manifest a R2 → POST /v1/admin/release
-# vía la CLI. Rollout inicial 10% — subirlo requiere `ycore rollout` manual tras
-# vigilar `ycore stats`.
+# Pasos: build Windows (con la config pública de updates embebida, ADR-0006) →
+# verificar que quedó embebida y hacer un smoke test contra el Worker real →
+# sha512/size del instalador → firmar manifest.json con Ed25519 → subir
+# instalador + .blockmap + manifest a R2 → POST /v1/admin/release vía la CLI.
+# Rollout inicial 10% — subirlo requiere `ycore rollout` manual tras vigilar
+# `ycore stats`.
 
 name: release-desktop
 
@@ -46,8 +48,25 @@ jobs:
       - name: Lint + typecheck + test (mismo gate que cualquier PR)
         run: pnpm check:all
 
+      - name: Compilar el proceso main con la config de updates embebida (ADR-0006)
+        env:
+          YCORE_REQUIRE_UPDATE_CONFIG: '1'
+          YCORE_WORKER_URL: ${{ secrets.YCORE_WORKER_URL }}
+          YCORE_CLIENT_SECRET: ${{ secrets.YCORE_CLIENT_SECRET }}
+          YCORE_MANIFEST_PUBLIC_KEYS: ${{ secrets.YCORE_MANIFEST_PUBLIC_KEYS }}
+        run: pnpm --filter @ycore/desktop build
+
       - name: Empaquetar instalador NSIS
         run: pnpm --filter @ycore/desktop package:win
+
+      - name: Verificar que la config de updates quedó embebida (ADR-0006)
+        env:
+          YCORE_WORKER_URL: ${{ secrets.YCORE_WORKER_URL }}
+          YCORE_CLIENT_SECRET: ${{ secrets.YCORE_CLIENT_SECRET }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: node tools/scripts/verify-embedded-update-config.mjs --bundle apps/desktop/out/main/index.js
 
       - name: Firmar el manifest con Ed25519
         env:

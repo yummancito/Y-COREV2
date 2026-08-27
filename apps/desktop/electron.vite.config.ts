@@ -5,7 +5,7 @@
 
 import { resolve } from 'node:path';
 import { cpSync } from 'node:fs';
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
+import { defineConfig, externalizeDepsPlugin, loadEnv } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 
 /**
@@ -62,9 +62,60 @@ const WORKSPACE_PACKAGES = [
  */
 const PRELOAD_EXTRA_BUNDLED = [...WORKSPACE_PACKAGES, 'zod'];
 
+const UPDATE_CONFIG_KEYS = ['YCORE_WORKER_URL', 'YCORE_CLIENT_SECRET', 'YCORE_MANIFEST_PUBLIC_KEYS'] as const;
+
+/**
+ * Un build de release (`YCORE_REQUIRE_UPDATE_CONFIG=1`, puesto solo por
+ * `release-desktop.yml`) sin las tres variables produce un `.exe` que nunca
+ * podrá avisar de que existe un arreglo para sí mismo (ADR-0006, punto 4):
+ * un fallo irreversible en campo. Se para el build aquí, no en runtime — el
+ * modo inerte de `update-scheduler.ts` sigue intacto para cualquier build
+ * que no sea de release. Ningún PR ni `pnpm dev` local necesita este flag.
+ */
+function assertReleaseConfigComplete(read: (key: string) => string | undefined): void {
+  if (process.env['YCORE_REQUIRE_UPDATE_CONFIG'] !== '1') return;
+  const missing = UPDATE_CONFIG_KEYS.filter((key) => read(key) === undefined);
+  if (missing.length > 0) {
+    throw new Error(
+      `Build de release sin config de updates: falta ${missing.join(', ')}. ` +
+        'Definir estos secrets en el workflow release-desktop.yml (ADR-0006).',
+    );
+  }
+}
+
+/**
+ * Config pública de updates (ADR-0006), embebida como literales en
+ * `out/main/index.js` en build time. Nunca en `preload` ni `renderer`: el
+ * `YCORE_CLIENT_SECRET` no debe llegar al proceso que renderiza contenido.
+ *
+ * Sale de `process.env` del proceso que ejecuta el build (o de
+ * `apps/desktop/.env.local`, cargado aquí sin exigir el prefijo `VITE_` de
+ * Vite), no del que ejecuta la app — un `.exe` instalado no hereda el
+ * entorno de quien lo compiló. Si falta una variable se sustituye por
+ * `undefined` (nunca un fallback a una URL de producción): eso es lo que
+ * mantiene el modo inerte de `update-scheduler.ts` como red de seguridad
+ * para cualquier build sin esta config, en vez de hardcodear un valor que
+ * convertiría cualquier clon del repo en cliente de producción.
+ */
+function buildUpdateConfigDefine(): Record<string, string> {
+  const fileEnv = loadEnv('production', __dirname, '');
+  const read = (key: string): string | undefined => process.env[key] ?? fileEnv[key];
+
+  assertReleaseConfigComplete(read);
+
+  return {
+    'process.env.YCORE_WORKER_URL': JSON.stringify(read('YCORE_WORKER_URL')),
+    'process.env.YCORE_CLIENT_SECRET': JSON.stringify(read('YCORE_CLIENT_SECRET')),
+    'process.env.YCORE_MANIFEST_PUBLIC_KEYS': JSON.stringify(read('YCORE_MANIFEST_PUBLIC_KEYS')),
+  };
+}
+
+const UPDATE_CONFIG_DEFINE = buildUpdateConfigDefine();
+
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin({ exclude: WORKSPACE_PACKAGES }), copyMigrationsPlugin()],
+    define: UPDATE_CONFIG_DEFINE,
     build: {
       rollupOptions: {
         input: resolve(__dirname, 'src/main/index.ts'),

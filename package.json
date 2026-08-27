@@ -20,7 +20,8 @@
     "check:staged": "node tools/scripts/check-staged.mjs",
     "check:worker-routes": "node tools/scripts/check-worker-routes.mjs",
     "check:no-private-key": "node tools/scripts/check-no-private-key.mjs",
-    "check:all": "pnpm lint && pnpm typecheck && pnpm test && pnpm knip && pnpm check:docs && pnpm check:contract && pnpm check:worker-routes && pnpm check:no-private-key",
+    "check:build-config": "node tools/scripts/check-build-config.mjs",
+    "check:all": "pnpm lint && pnpm typecheck && pnpm test && pnpm knip && pnpm check:docs && pnpm check:contract && pnpm check:worker-routes && pnpm check:no-private-key && pnpm check:build-config",
     "changeset": "changeset",
     "prepare": "git config core.hooksPath .githooks"
   },

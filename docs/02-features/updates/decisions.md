@@ -41,8 +41,15 @@ otro ajuste, se añade como otra fila de la misma tabla, sin migración nueva.
 fuente (son secretos de build, distintos por canal/entorno). Si falta alguna, en vez de
 fallar el arranque de la app, se construye un `UpdateService` "inerte" que siempre
 reporta `up-to-date` — comprobar actualizaciones nunca puede ser un requisito para que
-Y-CORE abra. Documentado aquí y no en el ADR porque es una decisión de robustez local,
-no una decisión de arquitectura del sistema de updates en sí.
+Y-CORE abra.
+
+Esta garantía de runtime queda intacta, pero de dónde salen esas tres variables en un
+`.exe` real sí es una decisión de arquitectura, y está en **ADR-0006**: en build time,
+`electron.vite.config.ts` las sustituye como literales en `out/main/index.js` con
+`define` (nunca en `preload`/`renderer`), leyendo de GitHub Secrets en CI o de
+`apps/desktop/.env.local` en dev. Un build de release (`YCORE_REQUIRE_UPDATE_CONFIG=1`)
+sin las tres falla el CI en vez de publicar un `.exe` que nunca podrá avisar de su
+propio arreglo. Ver ADR-0006 para el porqué completo y las alternativas descartadas.
 
 ## `installNow` recibe `onBeforeQuit` como callback inyectado, no importa `electron.app`
 
