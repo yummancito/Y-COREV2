@@ -67,3 +67,24 @@ describe('UpdateBanner', () => {
     await waitFor(() => expect(screen.getByText(/No se pudo completar la actualización/)).toBeInTheDocument());
   });
 });
+
+describe('UpdateBanner — kill-switch', () => {
+  it('en blocked muestra el modal de kill-switch con la versión a la que forzar', async () => {
+    window.ycore.updates.getStatus = vi.fn().mockResolvedValue(
+      ok({
+        status: {
+          phase: 'blocked',
+          reason: 'critical-bug',
+          message: { es: 'Esta versión ya no es compatible.', en: 'critical bug' },
+          forceUpdateTo: '5.1.0',
+        },
+      }),
+    );
+
+    renderWithClient();
+
+    await waitFor(() => expect(screen.getByRole('alertdialog')).toBeInTheDocument());
+    expect(screen.getByText('Esta versión ya no es compatible.')).toBeInTheDocument();
+    expect(screen.getByText(/Actualiza a la versión 5.1.0/)).toBeInTheDocument();
+  });
+});

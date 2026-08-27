@@ -823,3 +823,33 @@ qué "programa" ve cada herramienta (`projectService`/referencias de proyecto vs
 `tsconfig` aislado) antes de silenciar con `eslint-disable`. Buscar un tipo de destino
 que sea válido bajo ambas resoluciones posibles (aquí, `AsyncIterable<T>` en vez de
 `ReadableStream<T>`) suele evitar la excepción por completo.
+
+## 2026-08-27 — El kill-switch (`blocked`) se trataba como `up-to-date` en silencio
+
+**Contexto:** al implementar `UpdateService.checkNow()` para la feature de
+actualizaciones (ADR-0003), mapeando la respuesta de `/v1/check` a `UpdateStatus`.
+
+**Error:** el código comprobaba `if (response.status !== 'update-available') { status =
+'up-to-date'; return; }` — cualquier respuesta que no fuera `update-available` se
+trataba igual, incluida `status: 'blocked'` (el kill-switch: una versión instalada
+marcada como tóxica). El cliente nunca mostraba el aviso de "actualiza obligatoriamente",
+exactamente lo contrario de lo que el roadmap pedía ("modal de kill-switch").
+
+**Causa:** el ADR-0003 documenta dos silencios distintos que se parecen en el código
+pero son opuestos en intención: el modo mantenimiento debe ser indistinguible de
+`up-to-date` (silencio deliberado), pero el kill-switch debe ser **visible** (todo lo
+contrario). Escribir el `if` como "cualquier cosa que no sea `update-available` es
+up-to-date" colapsó ambos casos en el mismo camino, silenciando también el que debía
+sonar.
+
+**Solución:** se añadió una comprobación explícita de `response.status === 'blocked'`
+**antes** de la comprobación genérica, con su propia fase `UpdateStatus.blocked` que el
+`UpdateBanner` renderiza como un modal (`role="alertdialog"`) en vez del banner
+discreto del resto de fases.
+
+**Cómo evitarlo:** cuando un contrato tiene una unión discriminada con más de dos
+variantes y el código solo distingue una de ellas con un `if (x !== 'caso-conocido')`,
+revisar explícitamente qué pasa con cada una de las otras variantes — "todo lo que no
+es A es B" es correcto solo si de verdad hay nada más que A y B. Un test que cubra cada
+variante de la unión (no solo el camino feliz y "algo distinto") habría atrapado esto
+antes: se añadió `service-blocked.test.ts` específicamente para esta variante.

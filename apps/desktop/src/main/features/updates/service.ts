@@ -27,7 +27,8 @@ export type UpdateStatus =
   | { readonly phase: 'available'; readonly version: string; readonly mandatory: boolean; readonly notes: { es: string; en: string } }
   | { readonly phase: 'downloading'; readonly version: string; readonly bytesDownloaded: number; readonly bytesTotal: number | null }
   | { readonly phase: 'ready-to-install'; readonly version: string; readonly mandatory: boolean }
-  | { readonly phase: 'failed'; readonly reason: 'download-failed' | 'verification-failed' };
+  | { readonly phase: 'failed'; readonly reason: 'download-failed' | 'verification-failed' }
+  | { readonly phase: 'blocked'; readonly reason: string; readonly message: { es: string; en: string }; readonly forceUpdateTo: string };
 
 /** Todo lo que `UpdateService` necesita para hablar con el Worker y verificar la cadena de confianza. */
 export interface UpdateServiceConfig {
@@ -66,6 +67,11 @@ export class UpdateService {
       clientId: this.config.clientId,
       signature,
     });
+
+    if (response.status === 'blocked') {
+      this.status = { phase: 'blocked', reason: response.reason, message: response.message, forceUpdateTo: response.forceUpdateTo };
+      return;
+    }
 
     if (response.status !== 'update-available') {
       this.status = { phase: 'up-to-date' };

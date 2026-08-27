@@ -37,6 +37,12 @@ const updateStatusSchema = z
       phase: z.literal('failed'),
       reason: z.enum(['download-failed', 'verification-failed']).describe('Por qué no se pudo completar.'),
     }),
+    z.object({
+      phase: z.literal('blocked'),
+      reason: z.string().describe('Código corto del motivo del bloqueo (kill-switch), tal como lo manda el Worker.'),
+      message: z.object({ es: z.string(), en: z.string() }).describe('Mensaje explicando el bloqueo, por idioma.'),
+      forceUpdateTo: z.string().describe('Versión a la que hay que actualizar para dejar de estar bloqueado.'),
+    }),
   ])
   .describe(
     'Estado actual del ciclo de actualización, tal como lo ve el renderer. ' +

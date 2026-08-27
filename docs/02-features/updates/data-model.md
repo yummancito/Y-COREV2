@@ -12,8 +12,15 @@ type UpdateStatus =
   | { phase: 'available'; version: string; mandatory: boolean; notes: { es: string; en: string } }
   | { phase: 'downloading'; version: string; bytesDownloaded: number; bytesTotal: number | null }
   | { phase: 'ready-to-install'; version: string; mandatory: boolean }
-  | { phase: 'failed'; reason: 'download-failed' | 'verification-failed' };
+  | { phase: 'failed'; reason: 'download-failed' | 'verification-failed' }
+  | { phase: 'blocked'; reason: string; message: { es: string; en: string }; forceUpdateTo: string };
 ```
+
+`blocked` es el kill-switch (ADR-0003/ADR-0005): el Worker puede marcar una versión
+instalada como tóxica, y el cliente debe mostrarlo de forma visible — a diferencia del
+modo mantenimiento, que es indistinguible de `up-to-date` a propósito. `checkNow()`
+comprueba `blocked` antes que cualquier otra cosa, para no confundirlo nunca con
+`up-to-date` en silencio.
 
 No hay transición explícita (`transition()`/`ALLOWED_TRANSITIONS` de `core-domain`):
 `UpdateService` solo tiene un ciclo, no un grafo de estados con múltiples caminos —

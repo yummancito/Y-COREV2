@@ -22,6 +22,14 @@ mensaje:
 El banner se refresca por **polling** (`useUpdateStatusQuery`, mismo patrón que
 `useDownloadsQuery`): cada segundo mientras hay actividad, cada minuto en `up-to-date`.
 
+## Kill-switch: versión bloqueada
+
+Si el Worker marca la versión instalada como bloqueada (kill-switch, ADR-0005), el
+banner deja de ser discreto: se muestra como `role="alertdialog"` con el mensaje del
+servidor y la versión a la que hay que actualizar. A diferencia del resto de fases,
+esta no compite con `up-to-date` — se comprueba primero en `UpdateService.checkNow()`,
+así que nunca se confunde con "estás al día".
+
 ## Instalar una actualización lista
 
 El botón "Instalar y reiniciar" solo aparece en fase `ready-to-install`. Al pulsarlo,

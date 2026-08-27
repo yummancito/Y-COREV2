@@ -20,6 +20,15 @@ export function UpdateBanner(): React.JSX.Element | null {
   const { data } = status;
   if (data.phase === 'up-to-date') return null;
 
+  if (data.phase === 'blocked') {
+    return (
+      <div role="alertdialog" aria-modal="true">
+        <p>{data.message.es}</p>
+        <p>Actualiza a la versión {data.forceUpdateTo} para seguir usando Y-CORE.</p>
+      </div>
+    );
+  }
+
   if (data.phase === 'available') {
     return <p>Descargando la actualización a la versión {data.version}…</p>;
   }
