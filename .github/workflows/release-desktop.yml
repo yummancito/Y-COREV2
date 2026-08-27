@@ -1,0 +1,99 @@
+# release-desktop.yml
+#
+# Para qué sirve: publica una release de Y-CORE al empujar un tag `v*` (ADR-0003,
+# ADR-0005, punto 5). Es el ÚNICO camino para publicar una release firmada — la
+# CLI `ycore release` (tools/cli) solo registra en el Worker lo que este workflow
+# ya subió, nunca firma nada. La clave privada Ed25519 vive solo en
+# `secrets.YCORE_SIGNING_KEY_BASE64`, nunca en el Worker ni en un disco local.
+#
+# Pasos: build Windows → sha512/size del instalador → firmar manifest.json con
+# Ed25519 → subir instalador + .blockmap + manifest a R2 → POST /v1/admin/release
+# vía la CLI. Rollout inicial 10% — subirlo requiere `ycore rollout` manual tras
+# vigilar `ycore stats`.
+
+name: release-desktop
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build-sign-publish:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Extraer versión del tag
+        id: version
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Lint + typecheck + test (mismo gate que cualquier PR)
+        run: pnpm check:all
+
+      - name: Empaquetar instalador NSIS
+        run: pnpm --filter @ycore/desktop package:win
+
+      - name: Firmar el manifest con Ed25519
+        env:
+          YCORE_SIGNING_KEY_BASE64: ${{ secrets.YCORE_SIGNING_KEY_BASE64 }}
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          node tools/scripts/sign-release-manifest.mjs \
+            --installer "apps/desktop/release/Y-CORE-Setup-${VERSION}.exe" \
+            --blockmap "apps/desktop/release/Y-CORE-Setup-${VERSION}.exe.blockmap" \
+            --version "$VERSION" \
+            --channel stable \
+            --notes-es "Ver CHANGELOG.md" \
+            --notes-en "See CHANGELOG.md" \
+            --out "apps/desktop/release/manifest.json"
+
+      - name: Subir instalador, blockmap y manifest a R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ENDPOINT="https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+          aws s3 cp "apps/desktop/release/Y-CORE-Setup-${VERSION}.exe" \
+            "s3://ycore-releases/releases/${VERSION}/Setup.exe" --endpoint-url "$ENDPOINT"
+          aws s3 cp "apps/desktop/release/Y-CORE-Setup-${VERSION}.exe.blockmap" \
+            "s3://ycore-releases/releases/${VERSION}/Setup.exe.blockmap" --endpoint-url "$ENDPOINT"
+          aws s3 cp "apps/desktop/release/manifest.json" \
+            "s3://ycore-releases/releases/${VERSION}/manifest.json" --endpoint-url "$ENDPOINT"
+
+      - name: Registrar la release en el Worker (rollout inicial 10%)
+        env:
+          YCORE_WORKER_URL: ${{ secrets.YCORE_WORKER_URL }}
+          YCORE_ADMIN_TOKEN: ${{ secrets.YCORE_ADMIN_TOKEN }}
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          SHA512=$(node -e "console.log(require('./apps/desktop/release/manifest.json').sha512)")
+          BLOCKMAP_SHA512=$(node -e "console.log(require('./apps/desktop/release/manifest.json').blockmapSha512 ?? '')")
+          SIZE=$(node -e "console.log(require('./apps/desktop/release/manifest.json').size)")
+          pnpm --filter @ycore/cli ycore release \
+            --version "$VERSION" --channel stable --rollout 10 \
+            --r2-key "releases/${VERSION}/Setup.exe" \
+            --blockmap-key "releases/${VERSION}/Setup.exe.blockmap" \
+            --manifest-key "releases/${VERSION}/manifest.json" \
+            --size "$SIZE" --sha512 "$SHA512" --blockmap-sha512 "$BLOCKMAP_SHA512" \
+            --notes-es "Ver CHANGELOG.md" --notes-en "See CHANGELOG.md"

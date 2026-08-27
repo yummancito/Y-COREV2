@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "node tools/rebuild-native-for-electron.mjs && electron-vite dev",
     "build": "node tools/rebuild-native-for-electron.mjs && electron-vite build",
+    "package:win": "electron-builder --win --config electron-builder.yml",
     "rebuild:native:electron": "node tools/rebuild-native-for-electron.mjs",
     "rebuild:native:node": "node tools/rebuild-native-for-node.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
@@ -49,6 +50,7 @@
     "@ycore/tsconfig": "workspace:*",
     "drizzle-kit": "^0.31.10",
     "electron": "^33.4.11",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "eslint": "^9.20.0",
     "jsdom": "^30.0.1",

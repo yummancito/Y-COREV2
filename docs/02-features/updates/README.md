@@ -60,13 +60,30 @@ errores, la verificación Ed25519+SHA512, el modo mantenimiento indistinguible) 
 [ADR-0003](../../adr/0003-abandonar-electron-updater.md); el diseño del Worker que
 consume este cliente está en [ADR-0005](../../adr/0005-update-worker-en-cloudflare.md).
 
+## Publicar una release (`.github/workflows/release-desktop.yml`)
+
+El único camino para publicar una release firmada — nunca desde un portátil, ADR-0005
+punto 5. Un tag `v*` dispara: `pnpm check:all` (mismo gate que cualquier PR) → empaquetar
+con `electron-builder.yml` (NSIS, `differentialPackage: true`, sin firma de código) →
+`tools/scripts/sign-release-manifest.mjs` calcula sha512/size y firma el manifest con
+Ed25519 (`node:crypto`, la clave vive solo en `secrets.YCORE_SIGNING_KEY_BASE64`) →
+sube instalador + `.blockmap` + manifest a R2 → `ycore release` (`tools/cli`) registra
+la release en el Worker con rollout inicial 10%.
+
 ## Estado
 
 **Completo para el ciclo principal**: comprobación periódica, descarga completa,
-verificación Ed25519+SHA512, instalación silenciosa a demanda del usuario, IPC, y el
-banner del renderer. 161 tests en `apps/desktop` (sumados a los de
-`packages/updater-client`), con servidores HTTP reales y pares de claves Ed25519
-generados en el propio test — sin mocks de red ni de criptografía.
+verificación Ed25519+SHA512, instalación silenciosa a demanda del usuario, IPC, el
+banner del renderer (con modal de kill-switch), y el pipeline de publicación completo.
+163 tests en `apps/desktop` (sumados a los de `packages/updater-client`), con
+servidores HTTP reales y pares de claves Ed25519 generados en el propio test — sin
+mocks de red ni de criptografía. `sign-release-manifest.mjs` verificado end-to-end
+localmente: firma con una clave generada al vuelo y `crypto.subtle.verify` (el mismo
+mecanismo que usa `verifyManifestSignature`) confirma la firma como válida.
+
+**Sin verificar todavía**: el workflow completo contra R2/D1/KV reales (requiere
+secretos de Cloudflare y GitHub que no existen en este entorno) — ver
+`docs/05-operations/release-process.md` cuando exista.
 
 **Fuera de esta iteración, documentado como deuda conocida** (ver
 [decisions.md](decisions.md)): descarga diferencial por `.blockmap` (hoy siempre se

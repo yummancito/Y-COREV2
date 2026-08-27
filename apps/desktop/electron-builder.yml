@@ -1,0 +1,42 @@
+# electron-builder.yml
+# Para qué sirve: empaqueta Y-CORE como instalador NSIS de Windows para
+# `release-desktop.yml`. Reemplaza `compression: store` + `differentialPackage: false`
+# del v1 (ADR-0003: "~400 MB por actualización completa") — aquí la compresión
+# real y el .blockmap habilitan la descarga diferencial de packages/updater-client.
+
+appId: app.y-core.desktop
+productName: Y-CORE
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+
+asar: true
+compression: normal
+
+# ADR-0003: el .blockmap generado aquí es lo que sirve la descarga diferencial
+# de packages/updater-client — sin esto, todo update sería siempre el instalador completo.
+# Sin firma de código (ADR-0005: presupuesto 0 €, sin certificado comercial). La cadena
+# de confianza real es Ed25519 + SHA-512 sobre el manifest, no Authenticode — ver
+# ADR-0003 y `packages/updater-client/src/verify-manifest.ts`.
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: '${productName}-Setup-${version}.${ext}'
+  signAndEditExecutable: false
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  differentialPackage: true
+  # /S (instalación silenciosa) la usa apps/desktop/src/main/platform/installer-launcher.ts
+  # al reinstalar una actualización ya verificada — sin diálogos ni progreso visible.
+  runAfterFinish: false
+
+publish: null

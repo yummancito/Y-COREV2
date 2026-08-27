@@ -47,6 +47,8 @@ const WORKSPACE_PACKAGES = [
   '@ycore/ipc-contract',
   '@ycore/logger',
   '@ycore/result',
+  '@ycore/update-contract',
+  '@ycore/updater-client',
 ];
 
 export default defineConfig({
