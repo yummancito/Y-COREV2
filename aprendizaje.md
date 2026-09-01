@@ -1271,3 +1271,37 @@ solo se prueba de verdad matando el proceso real de la app real a mitad, no
 simulando el estado final a mano en un test — ver
 `service-resume-disk-ahead-of-db.test.ts`, que reproduce el escenario exacto
 (disco adelantado a la DB) sin necesitar Electron.
+
+## 2026-09-01 — Primer run real de `release-desktop.yml` falló en lint por falta de `worker-configuration.d.ts`
+
+**Contexto:** primer tag real (`v0.1.0-alpha.1`) empujado para probar el
+pipeline `release-desktop.yml` de punta a punta por primera vez, en un runner
+`windows-latest` con checkout limpio. `pnpm check:all` local siempre había
+pasado.
+
+**Error:** `pnpm lint` falló en `@ycore/update-worker` con decenas de
+`@typescript-eslint/no-unsafe-call` / `no-unsafe-member-access` sobre
+`env.CONFIG`, `env.DB.prepare(...)`, etc. — el linter type-aware no podía
+resolver los tipos `KVNamespace`/`D1Database`/`Env`.
+
+**Causa:** `worker-configuration.d.ts` (los tipos globales de Cloudflare
+Workers) se genera con `wrangler types`, está en `.gitignore` a propósito (es
+un artefacto generado), y `typecheck`/`test` de ese paquete ya corrían
+`wrangler types &&` antes — pero `lint` no. En mi máquina el archivo ya
+existía de una corrida anterior de `typecheck`, así que `pnpm check:all`
+local nunca lo notó. `pnpm check:all` corre `lint` antes que `typecheck`, y
+en un checkout de CI limpio no hay ningún `worker-configuration.d.ts` cuando
+`lint` arranca.
+
+**Solución:** `services/update-worker/package.json`, script `lint`, pasa de
+`"eslint src"` a `"wrangler types && eslint src"` — mismo patrón que ya
+usaban `typecheck` y `test` en ese mismo `package.json`.
+
+**Cómo evitarlo:** un archivo generado y gitignoreado que un checker necesita
+para funcionar debe regenerarse en **cada** script que lo use, no solo en
+algunos — si dos de tres scripts del mismo paquete ya tenían el patrón
+`generar && comando`, el tercero que no lo tiene es sospechoso por
+inconsistencia, no por casualidad. Y la prueba real de que `pnpm check:all`
+funciona "desde cero" es un checkout limpio (CI), nunca la máquina de
+desarrollo, que acumula artefactos generados de corridas anteriores y
+esconde exactamente este tipo de bug.
