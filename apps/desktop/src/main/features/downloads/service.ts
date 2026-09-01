@@ -15,13 +15,13 @@
 
 import { randomUUID } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { rm } from 'node:fs/promises';
+import { rm, stat } from 'node:fs/promises';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import { err, ok, type Result } from '@ycore/result';
 import { fromUnknown, type AppError } from '@ycore/result/app-error';
-import { transition, TokenBucket, type DownloadState } from '@ycore/core-domain';
+import { transition, TokenBucket, ProgressThrottle, type DownloadingState, type DownloadState } from '@ycore/core-domain';
 import type { DownloadMetadata, DownloadRecord } from './download-record.js';
 import { DownloadRepository } from './repository.js';
 import { openDownloadStream, type DownloadStream } from './http-client.js';
@@ -77,6 +77,45 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+/** Tamaño real del archivo parcial en disco, o 0 si todavía no existe (nunca se llegó a escribir nada). */
+async function bytesOnDisk(path: string): Promise<number> {
+  try {
+    return (await stat(path)).size;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * `Transform` que cuenta los bytes que pasan y reporta el acumulado a
+ * `onProgress`, agrupado por un {@link ProgressThrottle} (~4/s). No persistir
+ * `bytesDownloaded` mientras se escribe es el bug que rompe la reanudación
+ * tras un `kill -9`: sin esto, la fila se queda con el valor de cuando se
+ * abrió el stream y, al reanudar, se pide un `Range` que ya no corresponde a
+ * lo que hay en disco — el archivo termina corrupto en vez de retomado.
+ */
+function createProgressReportingTransform(
+  startingBytes: number,
+  bytesTotal: number | null,
+  onProgress: (sample: { bytesDownloaded: number; bytesTotal: number | null }) => void,
+): Transform {
+  const throttle = new ProgressThrottle();
+  let bytesDownloaded = startingBytes;
+  return new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      bytesDownloaded += chunk.length;
+      const sample = throttle.sample({ bytesDownloaded, bytesTotal }, Date.now());
+      if (sample !== null) onProgress(sample);
+      callback(null, chunk);
+    },
+    flush(callback) {
+      const pending = throttle.flush();
+      if (pending !== null) onProgress(pending);
+      callback();
+    },
+  });
+}
+
 export class DownloadService {
   private readonly inFlight = new Map<string, AbortController>();
 
@@ -99,9 +138,12 @@ export class DownloadService {
    * Retoma toda descarga que quedó en `downloading` cuando el proceso murió
    * a mitad (`kill -9`, crash, cierre forzado) — nadie llamó a `pause()`, así
    * que la fila sigue como si estuviera activa. Se llama una vez en el
-   * bootstrap, tras abrir la DB. El offset real para el `Range` es
-   * `bytesDownloaded` tal como quedó persistido (con el margen de hasta un
-   * segundo de descarga repetida que ya documenta el ADR-0004, punto 3).
+   * bootstrap, tras abrir la DB. El offset real para el `Range` sale del
+   * tamaño real del archivo parcial en disco (`bytesOnDisk`), no de
+   * `bytesDownloaded` de la fila: ese valor se persiste agrupado por
+   * `ProgressThrottle` (~4/s) y puede quedar por detrás de lo que ya hay
+   * escrito en el instante exacto del `kill -9` — verificado en la app real
+   * que confiar en la fila duplica ese margen y corrompe el archivo.
    */
   resumeInterrupted(): void {
     for (const record of this.repository.findAll()) {
@@ -194,9 +236,14 @@ export class DownloadService {
     this.inFlight.set(state.id, controller);
 
     // `downloading` llega aquí también cuando resumeInterrupted() retoma una
-    // fila que quedó a mitad por un kill -9: no hubo pause() explícito, pero
-    // bytesDownloaded ya persistido es la verdad de dónde reanudar.
-    const resumeBytes = state.status === 'paused' || state.status === 'downloading' ? state.bytesDownloaded : 0;
+    // fila que quedó a mitad por un kill -9: no hubo pause() explícito. La
+    // DB persiste bytesDownloaded agrupado por ProgressThrottle (~4/s), así
+    // que puede quedar por detrás de lo que ya hay escrito en disco en el
+    // instante exacto del kill -9 — pedir el Range de la DB y reabrir el
+    // archivo en modo append duplicaría ese margen. El tamaño real del
+    // archivo en disco es la única fuente de verdad de cuánto hay que pedir.
+    const resumeBytes =
+      state.status === 'paused' || state.status === 'downloading' ? await bytesOnDisk(metadata.destinationPath) : 0;
     const opened = await openDownloadStream(metadata.sourceUrl, {
       bytesDownloaded: resumeBytes,
       etag: metadata.etag,
@@ -228,7 +275,7 @@ export class DownloadService {
   }
 
   private async writeToDisk(
-    state: DownloadState,
+    state: DownloadingState,
     metadata: DownloadMetadata,
     opened: DownloadStream,
     signal: AbortSignal,
@@ -241,9 +288,13 @@ export class DownloadService {
       // solo TypeScript los tipa distinto al faltar la lib DOM.
       const webStream = opened.body as unknown as Parameters<typeof Readable.fromWeb>[0];
       const bucket = new TokenBucket(this.maxBytesPerSecond, Date.now());
+      const progress = createProgressReportingTransform(state.bytesDownloaded, state.bytesTotal, (sample) => {
+        this.repository.save({ id: state.id, status: 'downloading', ...sample }, nowIso());
+      });
       await pipeline(
         Readable.fromWeb(webStream),
         createThrottledPassThrough(bucket),
+        progress,
         createWriteStream(metadata.destinationPath, { flags }),
         { signal },
       );

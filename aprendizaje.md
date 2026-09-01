@@ -1209,3 +1209,65 @@ ningún test unitario, solo en un test que ejecuta el build real (de ahí el nue
 vez de spawnear un subproceso — un `execFileSync('npx', ...)` o el `.cmd` de
 `node_modules/.bin` con `shell: true` fallan en Windows cuando la ruta del repo
 tiene espacios, exactamente el caso de esta máquina).
+
+## 2026-09-01 — F4 (motor de descargas): dos bugs reales en la reanudación tras `kill -9`, encontrados probando en la app real
+
+**Contexto:** `docs/02-features/downloads/README.md` decía "Fase 4 completa" con
+el criterio de HECHO ya "verificado end-to-end" (un test con servidor HTTP local).
+Al probar el mismo escenario en la app de Electron real — encolar una descarga de
+verdad, matar el proceso con `Stop-Process -Force` a mitad, reabrir — el archivo
+terminaba corrupto (`download.integrity-mismatch`) las dos veces. El test existente
+no lo detectaba porque simulaba el estado post-kill escribiendo la fila y el
+archivo a mano, en sincronía perfecta — nunca ejercitaba el camino real de
+"progreso en memoria mientras se escribe".
+
+**Error 1: `bytesDownloaded` nunca se actualizaba en la DB mientras se escribía a
+disco.** `DownloadService.download()` solo persistía `bytesDownloaded` una vez, al
+ABRIR el stream (con el valor previo a esa descarga) — nunca durante `writeToDisk`.
+Con una fila `downloading` a medio camino, la reanudación pedía siempre el mismo
+offset con el que se había abierto el stream la vez anterior, sin importar cuánto
+se hubiera escrito de más.
+
+**Causa 1:** `ProgressThrottle` (`packages/core-domain/src/progress-throttle.ts`)
+ya existía, testeado y documentado como "para eso sirve" en el README de la
+feature — pero nadie lo conectó al pipeline de escritura real. Una pieza de
+dominio bien diseñada y aislada, sin cablear, es indistinguible de una que no
+existe.
+
+**Solución 1:** un `Transform` nuevo (`createProgressReportingTransform`) en el
+pipeline de `writeToDisk`, entre el throttle de ancho de banda y el
+`WriteStream`, que cuenta bytes y usa `ProgressThrottle.sample()`/`.flush()` para
+persistir `bytesDownloaded` en la DB a ~4/s durante la escritura, no solo al
+principio y al final.
+
+**Error 2 (más sutil, solo apareció después de arreglar el 1): la DB seguía
+quedando *por detrás* del disco real en el instante exacto del kill.** Con el
+throttle de progreso a ~4/s, el archivo en disco podía tener más bytes que los
+últimos persistidos en la fila (la ventana entre una escritura real y la siguiente
+muestra de progreso). Al reanudar, `resumeBytes` salía de `state.bytesDownloaded`
+(la fila) y el archivo se reabría en modo `'a'` (append) — el hueco entre "lo que
+la fila decía" y "lo que ya había en disco" se re-descargaba y se **duplicaba** al
+hacer append, corrompiendo el archivo aunque el `Range` pedido fuera, en apariencia,
+razonable.
+
+**Causa 2:** confundir "la última muestra de progreso persistida" con "la fuente
+de verdad de cuántos bytes hay realmente en el archivo". Son cosas relacionadas
+pero no idénticas en cuanto se introduce cualquier agrupamiento/throttle entre
+ambas.
+
+**Solución 2:** `bytesOnDisk()` — leer el tamaño real del archivo parcial con
+`fs.promises.stat()` (0 si no existe) y usarlo como el offset de reanudación,
+ignorando `state.bytesDownloaded` para ese propósito. El disco es la única fuente
+de verdad de lo que el disco contiene; la DB es una aproximación con lag conocido,
+útil para mostrar progreso, no para decidir un `Range` HTTP.
+
+**Cómo evitarlo:** cuando dos representaciones del "mismo" dato existen a
+propósito por razones de rendimiento (aquí: progreso persistido con throttle vs.
+bytes reales en disco), cualquier decisión que dependa de la exactitud (un offset
+de reanudación, un checksum, un límite) debe leer la fuente primaria, nunca la
+copia aproximada — ni siquiera cuando "en la práctica casi siempre coinciden". El
+criterio de HECHO de una feature con I/O real ("mata el proceso a mitad y reabre")
+solo se prueba de verdad matando el proceso real de la app real a mitad, no
+simulando el estado final a mano en un test — ver
+`service-resume-disk-ahead-of-db.test.ts`, que reproduce el escenario exacto
+(disco adelantado a la DB) sin necesitar Electron.

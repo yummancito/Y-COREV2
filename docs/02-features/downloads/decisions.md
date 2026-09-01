@@ -98,13 +98,27 @@ ambas en la misma pantalla (`<h1>` + `LibraryGrid` + `<h2>` + `DownloadsList`) s
 siendo más simple que introducir rutas para dos bloques verticales. El router llega
 cuando el número de secciones (o la necesidad de deep-linking) lo justifique, no antes.
 
-## `useEnqueueDownload` existe sin ningún componente que lo llame
+## `EnqueueDownloadForm` es un puente de verificación manual, no el flujo real de "elegir qué descargar"
 
-El hook está completo y testeado (incluida la invalidación de la cola al completar),
-pero `EnqueueDownloadInput` no se exporta desde el barrel de la feature ni desde el
-propio archivo, porque no hay ningún flujo de UI que arme ese input todavía — "elegir
-qué descargar" (de dónde sale la `sourceUrl` y el `expectedSha256`) es responsabilidad
-de una feature futura, no de la pantalla de la cola. Cuando esa feature exista, importa
-el hook directo desde `use-enqueue-download.ts` y expone el tipo si hace falta — no se
-adelanta la exportación sin un consumidor real (regla general del repo: cero código sin
-consumidor, knip lo marcaría).
+`useEnqueueDownload`/`EnqueueDownloadInput` estaban completos y testeados pero sin
+ningún componente que los llamara — bloqueaba verificar el ciclo completo de F4 en
+la app real (no solo en tests con estado simulado a mano). `EnqueueDownloadForm`
+(App ID + URL + ruta + SHA-256, todo a mano) cierra ese hueco sin resolver "de
+dónde sale la URL y el hash de lo que se descarga", que sigue siendo
+responsabilidad de una feature futura. Cuando esa feature exista, decide si
+reemplaza este formulario, lo esconde detrás de un flag de desarrollo, o lo deja
+como herramienta de diagnóstico — no se decide aquí.
+
+## `bytesOnDisk()` es la fuente de verdad del offset de reanudación, nunca `bytesDownloaded` de la fila
+
+`ProgressThrottle` (`packages/core-domain`) agrupa las escrituras de progreso a la
+DB a ~4/s — necesario para no golpear SQLite en cada chunk, pero significa que
+`bytesDownloaded` de la fila puede ir por detrás de lo que ya hay físicamente en
+disco en el instante exacto de un `kill -9`. Verificado en la app real (ver
+`aprendizaje.md`, 2026-09-01): si `download()` usa ese valor de la fila para pedir
+el `Range` y reabre el archivo en modo `'a'` (append), el margen entre "lo que la
+fila dice" y "lo que el disco tiene" se descarga de nuevo y se duplica, corrompiendo
+el archivo. `bytesOnDisk()` lee el tamaño real con `fs.promises.stat()` (0 si el
+archivo no existe todavía) y es lo único que decide desde dónde reanudar — el valor
+de la DB sigue existiendo y sirviendo para mostrar progreso en la UI, pero ya no
+participa en ninguna decisión que exija exactitud byte a byte.

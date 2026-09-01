@@ -42,7 +42,8 @@ apps/desktop/src/renderer/features/downloads/
   index.ts                     API pública: DownloadsList
   hooks/                        useDownloadsQuery (polling), useEnqueueDownload,
                                  usePauseDownload, useCancelDownload
-  components/                   DownloadsList (pantalla), DownloadRow (una fila)
+  components/                   DownloadsList (pantalla), DownloadRow (una fila),
+                                 EnqueueDownloadForm (formulario manual, ver "Estado")
 ```
 
 - `packages/ipc-contract` — canales `downloads.enqueue`, `downloads.list`,
@@ -58,15 +59,30 @@ con `yauzl`, por qué el índice único parcial, etc.) está en
 ## Estado
 
 **Fase 4 completa** (main + renderer): núcleo puro, persistencia, I/O, orquestación,
-IPC, y la pantalla de la cola de descargas montada en `App.tsx`. 134 tests, ~93% de
-cobertura combinada de la feature. Verificado end-to-end el criterio de HECHO más duro
-de la fase: una descarga interrumpida a mitad (fila `downloading` en la DB, archivo
-parcial en disco) se retoma desde el offset exacto persistido, pidiendo el `Range` HTTP
-correcto, y termina instalada.
+IPC, y la pantalla de la cola de descargas montada en `App.tsx`. Verificado
+end-to-end el criterio de HECHO más duro de la fase, **en la app real de Electron**
+(no solo en tests): encolar una descarga real, matar el proceso a mitad
+(`Stop-Process -Force`, no `pause()`) y reabrir la app retoma la descarga desde el
+offset real, pide el `Range` HTTP correcto, y termina instalada con la integridad
+SHA-256 verificada.
 
-**Lo que falta, fuera del alcance de esta fase**: un flujo de UI para "elegir qué
-descargar" (`useEnqueueDownload` existe y está testeado, pero ningún componente lo
-llama todavía — encolar una descarga real necesita saber de dónde sale la URL y el
-hash, que es responsabilidad de una feature futura, no de esta). Eventos push
-main→renderer en vez de polling (ver [decisions.md](decisions.md)). Configurar
-`maxBytesPerSecond` desde Ajustes.
+Esa verificación en vivo encontró y arregló dos bugs reales que el test original
+(con estado post-kill simulado a mano) no detectaba — ver `aprendizaje.md`,
+2026-09-01: (1) `bytesDownloaded` no se persistía mientras se escribía a disco,
+solo al abrir el stream — ahora `ProgressThrottle` (`packages/core-domain`) está
+conectado al pipeline de escritura y persiste el progreso real a ~4/s; (2) el
+offset de reanudación usa el tamaño real del archivo en disco (`bytesOnDisk`,
+`fs.stat`), no `bytesDownloaded` de la fila — esa fila puede ir por detrás del
+disco real en el instante exacto del `kill -9`, y confiar en ella duplicaba bytes
+al reabrir en modo append.
+
+`EnqueueDownloadForm` (montado dentro de `DownloadsList`) es un formulario manual
+(App ID + URL + ruta + SHA-256) que existe **solo** para poder ejercitar
+`downloads.enqueue` desde la app real — no resuelve catálogos ni sabe de Steam,
+y no es el flujo final de "elegir qué descargar" (ver más abajo).
+
+**Lo que falta, fuera del alcance de esta fase**: un flujo real de "elegir qué
+descargar" que resuelva URL y hash automáticamente — el formulario manual actual
+es un puente de verificación, no ese flujo. Eventos push main→renderer en vez de
+polling (ver [decisions.md](decisions.md)). Configurar `maxBytesPerSecond` desde
+Ajustes.

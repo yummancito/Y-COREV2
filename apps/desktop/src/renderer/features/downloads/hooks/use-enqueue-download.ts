@@ -10,13 +10,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { isErr } from '@ycore/result';
 import { downloadsQueryKey } from './use-downloads-query.js';
 
-/**
- * Lo que necesita el bridge para encolar una descarga nueva. No exportado:
- * hoy no hay ningún componente que arme este input desde fuera de este
- * archivo (no hay flujo de "elegir qué descargar" en la UI todavía). Si
- * surge un consumidor real, se vuelve a exportar entonces.
- */
-interface EnqueueDownloadInput {
+/** Lo que necesita el bridge para encolar una descarga nueva. */
+export interface EnqueueDownloadInput {
   readonly appId: number;
   readonly sourceUrl: string;
   readonly installPath: string;
