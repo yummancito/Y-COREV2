@@ -1305,3 +1305,80 @@ inconsistencia, no por casualidad. Y la prueba real de que `pnpm check:all`
 funciona "desde cero" es un checkout limpio (CI), nunca la máquina de
 desarrollo, que acumula artefactos generados de corridas anteriores y
 esconde exactamente este tipo de bug.
+
+## 2026-09-01 — Reintento del release real: `pnpm test` fallaba en checkout limpio por `.tmp-tests/` inexistente
+
+**Contexto:** tras arreglar el lint del worker (entrada anterior), reintento del
+mismo tag `v0.1.0-alpha.1`. `pnpm test` de `@ycore/desktop` falló en el runner
+con `ENOENT ... mkdtemp '.tmp-tests\\...'` en 13 archivos distintos
+(`downloads/*.test.ts`, `steam/watcher.test.ts`).
+
+**Error:** cada uno de esos archivos define su propio
+`const TMP_TESTS_ROOT = join(process.cwd(), '.tmp-tests')` y llama
+`mkdtempSync(join(TMP_TESTS_ROOT, 'prefijo-'))` directo, sin que nada cree
+`.tmp-tests/` antes. `mkdtempSync` de Node exige que el directorio **padre**
+ya exista — no lo crea él.
+
+**Causa:** mismo patrón que el bug de lint anterior en esta misma sesión: un
+directorio gitignoreado (`.tmp-tests/`) sobrevivía entre corridas en la
+máquina de desarrollo, así que el bug era invisible ahí. Un checkout limpio de
+CI no lo tiene.
+
+**Solución:** `apps/desktop/src/main/test-global-setup.ts` — un `globalSetup`
+de Vitest (declarado en el proyecto `main` de `vitest.config.ts`) que crea
+`.tmp-tests/` con `mkdirSync(..., { recursive: true })` antes de que corra
+cualquier test, y lo borra al final. Centralizado en un solo lugar en vez de
+arreglar los 13 archivos por separado — así un archivo de test nuevo que
+reintroduzca el mismo patrón no vuelve a romperse.
+
+**Cómo evitarlo:** cualquier directorio de trabajo compartido entre varios
+archivos de test (temp, fixtures generados, cachés) debe crearse en un
+`globalSetup`/`beforeAll` centralizado, nunca asumido como "ya va a existir"
+por cada archivo que lo usa — la asunción sobrevive sin detectarse mientras
+el directorio persista por accidente entre corridas locales.
+
+## 2026-09-01 — `steam-registry.test.ts` fallaba solo en el runner de CI, nunca en local (segundo fallo del mismo reintento)
+
+**Contexto:** mismo reintento del release real, tras arreglar `.tmp-tests/`.
+`src/main/platform/steam-registry.test.ts` falló con
+`AssertionError: expected false to be true` en el test "normaliza forward
+slashes a backslashes" — nunca reprodujo en local, ni aislado ni corriendo la
+suite completa varias veces, con o sin paralelismo entre archivos.
+
+**Error:** el test mockeaba `node:child_process` con `vi.mock('node:child_process')`
+seguido de `await import('./steam-registry.js')` (import dinámico) para que el
+mock surtiera efecto sobre `execFileAsync = promisify(execFile)`, un binding
+resuelto en el nivel de módulo. `steam-registry.ts` se importa además de forma
+**estática** desde `library-scanner.ts` y `watcher.ts`, y `watcher.test.ts`
+mockea el mismo módulo (`steam-registry.js`) completo con `vi.mock` estático
+(hoisted) — dos formas distintas de mockear el mismo módulo, en archivos
+distintos, cuyo resultado depende de qué import se resuelve primero en el
+worker de Vitest. Coincidió en no dar problema en esta máquina en decenas de
+corridas, y sí en el runner de GitHub Actions.
+
+**Causa:** mockear un módulo completo (`vi.mock`/`vi.doMock`) para poder
+testear una única función que internamente vincula una dependencia externa en
+el nivel de módulo (`promisify(execFile)` fuera de cualquier función) es
+frágil por construcción: el resultado depende del orden de resolución de
+módulos de ese proceso, no solo del propio archivo de test. No se pudo
+confirmar la causa exacta de por qué el orden difería en CI (no hay acceso a
+ese runner para depurar interactivamente), pero la clase de bug —dos mocks
+distintos sobre el mismo módulo, en archivos distintos— es sospechosa por sí
+sola.
+
+**Solución:** `findSteamInstallPath` pasó a aceptar `execFileAsync` como
+parámetro opcional inyectable (por defecto, el `promisify(execFile)` real),
+en vez de depender de mockear `node:child_process`. El test ahora pasa una
+función fake directamente, sin `vi.mock` ni import dinámico — elimina la
+clase entera de problema, no solo el síntoma puntual.
+
+**Cómo evitarlo:** cuando una función necesita una dependencia externa
+(proceso hijo, reloj, red) que hay que reemplazar en tests, inyectarla como
+parámetro con un valor por defecto es más robusto entre entornos que mockear
+el módulo que la importa — sobre todo si ese módulo también se importa
+estáticamente desde otro lugar del código que otro archivo de test también
+mockea de otra forma. Un fallo que solo ocurre en CI y nunca en local, sin
+poder reproducirlo tras varios intentos, es evidencia de una carrera de
+timing/orden, no de una aserción incorrecta — no vale la pena seguir
+intentando reproducirlo exactamente; vale más eliminar la dependencia fragil
+que causa la clase de problema.

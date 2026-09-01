@@ -17,6 +17,7 @@ export default defineConfig({
         test: {
           name: 'main',
           environment: 'node',
+          globalSetup: ['./src/main/test-global-setup.ts'],
           include: ['src/main/**/*.test.ts', 'src/preload/**/*.test.ts'],
           // Varios tests de main/features/downloads levantan un servidor HTTP
           // real y escriben a SQLite real; bajo la carga de correr los ~50

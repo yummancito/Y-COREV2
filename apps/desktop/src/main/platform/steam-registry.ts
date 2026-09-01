@@ -24,7 +24,10 @@ import { promisify } from 'node:util';
 import { err, ok, type Result } from '@ycore/result';
 import { appError, fromUnknown, type AppError } from '@ycore/result/app-error';
 
-const execFileAsync = promisify(execFile);
+/** Firma de `execFileAsync` (promisify de `child_process.execFile`) — inyectable para tests. */
+type ExecFileAsync = (file: string, args: readonly string[]) => Promise<{ stdout: string; stderr: string }>;
+
+const defaultExecFileAsync: ExecFileAsync = promisify(execFile);
 
 interface RegistryTarget {
   readonly hive: 'HKCU' | 'HKLM';
@@ -49,7 +52,7 @@ function extractRegistryValue(stdout: string, valueName: string): string | undef
 }
 
 /** Consulta una única clave del registro. `undefined` si no existe (no es un error). */
-async function readRegistryValue(target: RegistryTarget): Promise<string | undefined> {
+async function readRegistryValue(target: RegistryTarget, execFileAsync: ExecFileAsync): Promise<string | undefined> {
   try {
     const { stdout } = await execFileAsync('reg', [
       'query',
@@ -73,14 +76,18 @@ function normalizeWindowsPath(rawPath: string): string {
 /**
  * Busca la ruta de instalación de Steam en el registro de Windows.
  *
+ * @param execFileAsync - Inyectable solo para tests (por defecto,
+ *   `child_process.execFile` real vía `promisify`). Evita depender de
+ *   mockear el módulo `node:child_process` completo, que resultó frágil
+ *   entre entornos — ver `aprendizaje.md`, 2026-09-01.
  * @returns La ruta normalizada (backslashes), o `AppError` `not-found` si
  *   ninguna de las dos claves conocidas existe — significa que Steam no está
  *   instalado en esta máquina, no que hubo un fallo al leer el registro.
  */
-export async function findSteamInstallPath(): Promise<Result<string, AppError>> {
+export async function findSteamInstallPath(execFileAsync: ExecFileAsync = defaultExecFileAsync): Promise<Result<string, AppError>> {
   try {
     for (const target of REGISTRY_TARGETS) {
-      const value = await readRegistryValue(target);
+      const value = await readRegistryValue(target, execFileAsync);
       if (value !== undefined && value !== '') return ok(normalizeWindowsPath(value));
     }
     return err(appError('not-found', { detail: 'Steam no está instalado (sin claves de registro conocidas)' }));
