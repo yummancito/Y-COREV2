@@ -1382,3 +1382,40 @@ poder reproducirlo tras varios intentos, es evidencia de una carrera de
 timing/orden, no de una aserción incorrecta — no vale la pena seguir
 intentando reproducirlo exactamente; vale más eliminar la dependencia fragil
 que causa la clase de problema.
+
+## 2026-09-01 — `verify-embedded-update-config.mjs` fallaba en el runner de CI: `npx` es un `.cmd` en Windows
+
+**Contexto:** cuarto fallo del mismo reintento del release real. Con lint/
+typecheck/test, build y empaquetado ya en verde, el paso "Verificar que la
+config de updates quedó embebida" (ADR-0006, punto 5.3) falló con
+`spawnSync npx ENOENT`.
+
+**Error:** `execFileSync('npx', [...])` sin `shell: true` — Windows no puede
+ejecutar un `.cmd` (que es lo que es `npx` en Windows) como un binario
+directo vía `spawnSync` sin pasar por un shell.
+
+**Causa:** el mismo problema que ya había aparecido probando este script en
+local un día antes (ver la sesión de F5 en el historial de conversación,
+2026-08-27/28) — se corrigió entonces con `shell: true`, pero al agregar
+después el paso de `check_stats` (D1) el `execFileSync` original con `npx`
+sin `shell: true` se reintrodujo sin darme cuenta al reescribir esa sección.
+
+**Solución:** `execFileSync('npx', [...], { shell: true })`. Con `shell: true`
+apareció un segundo problema en cascada: Node no cita cada elemento del
+array de argumentos por separado — los concatena con espacios antes de
+pasarlos al shell, así que el SQL (que tiene sus propios espacios) llegaba a
+`wrangler` partido en varios argumentos (`Unknown arguments: count, FROM,
+check_stats, ...`). Se resolvió citando el SQL a mano con comillas dobles
+(`` `"${sql}"` ``) antes de pasarlo — es SQL generado internamente con
+valores propios (fecha, versión sintética fija, canal fijo), nunca entrada
+externa, así que citarlo a mano no abre una inyección de shell.
+
+**Cómo evitarlo:** en Windows, cualquier `execFileSync`/`spawnSync` de un
+binario que en realidad es un `.cmd`/`.bat` (`npx`, `npm`, casi cualquier CLI
+de Node instalado vía npm) necesita `shell: true` — y en cuanto se activa
+`shell: true`, cualquier argumento con espacios deja de llegar como un solo
+argumento a menos que se cite a mano; los dos problemas van juntos y suelen
+aparecer en dos iteraciones seguidas del mismo fix, como pasó aquí. Un
+script que invoca herramientas de Node vía `child_process` debe probarse en
+Windows de verdad (no asumir que "ya funcionó una vez" cubre todos los
+argumentos que ese script vaya a construir después).

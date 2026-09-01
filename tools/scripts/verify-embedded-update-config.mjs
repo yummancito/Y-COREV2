@@ -122,13 +122,24 @@ const sql = `SELECT count FROM check_stats WHERE day = '${today}' AND version = 
 
 let d1Output;
 try {
+  // `npx` es un `.cmd` en Windows: `execFileSync` sin `shell: true` falla con
+  // ENOENT (verificado en el runner de release-desktop.yml, windows-latest —
+  // ver aprendizaje.md, 2026-09-01). Con `shell: true`, Node NO cita cada
+  // elemento del array por separado — los concatena con espacios y el shell
+  // (cmd.exe en Windows) los vuelve a partir por espacio, así que el SQL
+  // (que tiene espacios) llegaría a wrangler roto en varios argumentos.
+  // El SQL se cita a mano con comillas dobles para que cmd.exe lo trate como
+  // un único argumento; es SQL generado con valores propios (fecha, versión
+  // sintética, canal fijo), nunca entrada externa, así que citarlo a mano
+  // no abre una inyección de shell.
   d1Output = execFileSync(
     'npx',
-    ['wrangler', 'd1', 'execute', d1DatabaseName, '--remote', '--json', '--command', sql],
+    ['wrangler', 'd1', 'execute', d1DatabaseName, '--remote', '--json', '--command', `"${sql}"`],
     {
       cwd: 'services/update-worker',
       env: { ...process.env, CLOUDFLARE_API_TOKEN: cloudflareApiToken, CLOUDFLARE_ACCOUNT_ID: cloudflareAccountId },
       encoding: 'utf8',
+      shell: true,
     },
   );
 } catch (error) {
