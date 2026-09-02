@@ -1419,3 +1419,40 @@ aparecer en dos iteraciones seguidas del mismo fix, como pasó aquí. Un
 script que invoca herramientas de Node vía `child_process` debe probarse en
 Windows de verdad (no asumir que "ya funcionó una vez" cubre todos los
 argumentos que ese script vaya a construir después).
+
+## 2026-09-01 — `electron-builder` nombraba el instalador con la versión del `package.json` (0.0.0), no la del tag
+
+**Contexto:** quinto fallo del mismo reintento de release. Con verificación
+de config embebida ya en verde, el paso "Firmar el manifest con Ed25519"
+falló con `no existe el instalador en apps/desktop/release/Y-CORE-Setup-0.1.0-alpha.1.exe`.
+
+**Error:** el paso anterior ("Empaquetar instalador NSIS") sí corrió bien,
+pero generó `Y-CORE-Setup-0.0.0.exe` — el log lo mostraba explícito
+(`building target=nsis file=release\Y-CORE-Setup-0.0.0.exe`), solo que nadie
+lo había mirado hasta que el paso siguiente falló por buscar el nombre
+equivocado.
+
+**Causa:** `electron-builder.yml` tiene `artifactName:
+'${productName}-Setup-${version}.${ext}'`, y `${version}` lo resuelve
+electron-builder de `apps/desktop/package.json` — que nunca se actualiza
+(sigue en `0.0.0` desde el bootstrap del repo). El resto del pipeline
+(firma, subida a R2, registro en el Worker) construye el nombre del archivo
+a partir de `${{ steps.version.outputs.version }}` (la versión extraída del
+tag de git), así que ambas fuentes de "la versión" divergían silenciosamente
+hasta el primer paso que intentaba abrir el archivo por nombre.
+
+**Solución:** paso nuevo "Fijar la versión del tag en
+apps/desktop/package.json" (`npm pkg set version=... --prefix apps/desktop`),
+justo después de extraer la versión del tag y antes de `pnpm check:all` — dos
+fuentes de verdad de la versión (el tag de git y `package.json`) se
+sincronizan explícitamente en vez de asumir que ya coinciden.
+
+**Cómo evitarlo:** cuando dos herramientas del mismo pipeline derivan "la
+misma" versión de dos sitios distintos (aquí: `electron-builder` de
+`package.json`, el resto del workflow del tag de git), sincronizarlas es
+responsabilidad explícita del pipeline, no un supuesto implícito — y el
+primer indicio suele aparecer varios pasos después del que realmente causó
+el desajuste (el build "tuvo éxito" con el nombre equivocado, el fallo
+apareció recién al intentar abrir ese archivo por su nombre esperado). Mirar
+el nombre real de cada artefacto generado, no solo si el paso salió en
+verde.

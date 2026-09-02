@@ -45,6 +45,16 @@ jobs:
         shell: bash
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
+      - name: Fijar la versión del tag en apps/desktop/package.json
+        # electron-builder resuelve `${version}` de artifactName
+        # (electron-builder.yml) desde package.json, no desde el tag de git —
+        # sin este paso el instalador sale nombrado con la versión que haya
+        # en el repo (0.0.0, nunca actualizada a mano) y los pasos siguientes,
+        # que sí usan la versión del tag para el nombre del archivo, no lo
+        # encuentran.
+        shell: bash
+        run: npm pkg set version="${{ steps.version.outputs.version }}" --prefix apps/desktop
+
       - name: Lint + typecheck + test (mismo gate que cualquier PR)
         run: pnpm check:all
 
